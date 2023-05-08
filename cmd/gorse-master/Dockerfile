@@ -3,6 +3,8 @@
 ############################
 FROM golang:1.20
 
+RUN go env -w GOPROXY="https://goproxy.cn"
+
 COPY . gorse
 
 RUN cd gorse/cmd/gorse-master && \
