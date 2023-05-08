@@ -284,23 +284,31 @@ func (m *Master) RunPrivilegedTasksLoop() {
 		}
 		firstLoop = true
 	)
+	log.Logger().Info("RunPrivilegedTasksLoop")
 	go func() {
 		m.importedChan.Signal()
 		for {
 			if m.checkDataImported() {
 				m.importedChan.Signal()
 			}
+			//TODO： 更触发训练时间间隔太短，通过配置控制最好，建议默认1小时
 			time.Sleep(time.Second)
 		}
 	}()
+	log.Logger().Info("RunPrivilegedTasksLoop for")
 	for {
 		select {
 		case <-m.fitTicker.C:
+			log.Logger().Info("fitTicker")
 		case <-m.importedChan.C:
 		}
 
+		//TODO： 增加训练只在空闲时段控制，默认空闲时段 15-17  20-24
+
 		// download dataset
+		log.Logger().Info("runLoadDatasetTask")
 		err = m.runLoadDatasetTask()
+		log.Logger().Info("runLoadDatasetTask over")
 		if err != nil {
 			log.Logger().Error("failed to load ranking dataset", zap.Error(err))
 			continue
@@ -312,6 +320,7 @@ func (m *Master) RunPrivilegedTasksLoop() {
 		}
 
 		if firstLoop {
+			log.Logger().Info("firstLoop loadDataChan.Signal")
 			m.loadDataChan.Signal()
 			firstLoop = false
 		}
@@ -319,11 +328,13 @@ func (m *Master) RunPrivilegedTasksLoop() {
 		var registeredTask []Task
 		for _, t := range tasks {
 			if m.jobsScheduler.Register(t.name(), t.priority(), true) {
+				log.Logger().Info("Register task ", zap.String("task", t.name()))
 				registeredTask = append(registeredTask, t)
 			}
 		}
 		for _, t := range registeredTask {
 			go func(task Task) {
+				log.Logger().Info("start task ", zap.String("task", task.name()))
 				j := m.jobsScheduler.GetJobsAllocator(task.name())
 				defer m.jobsScheduler.Unregister(task.name())
 				j.Init()
@@ -331,6 +342,8 @@ func (m *Master) RunPrivilegedTasksLoop() {
 					log.Logger().Error("failed to run task", zap.String("task", task.name()), zap.Error(err))
 					return
 				}
+
+				log.Logger().Info("task over", zap.String("task", task.name()))
 			}(t)
 		}
 	}

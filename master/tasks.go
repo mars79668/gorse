@@ -85,6 +85,7 @@ func (m *Master) runLoadDatasetTask() error {
 		return errors.Trace(err)
 	}
 
+	log.Logger().Debug("save popular items to cache")
 	// save popular items to cache
 	for category, items := range popularItems {
 		if err = m.CacheClient.SetSorted(ctx, cache.Key(cache.PopularItems, category), items); err != nil {
@@ -95,6 +96,7 @@ func (m *Master) runLoadDatasetTask() error {
 		log.Logger().Error("failed to write latest update popular items time", zap.Error(err))
 	}
 
+	log.Logger().Debug("save the latest items to cache")
 	// save the latest items to cache
 	for category, items := range latestItems {
 		if err = m.CacheClient.AddSorted(ctx, cache.Sorted(cache.Key(cache.LatestItems, category), items)); err != nil {
@@ -112,6 +114,7 @@ func (m *Master) runLoadDatasetTask() error {
 		log.Logger().Error("failed to write latest update latest items time", zap.Error(err))
 	}
 
+	log.Logger().Debug("write statistics to database")
 	// write statistics to database
 	UsersTotal.Set(float64(rankingDataset.UserCount()))
 	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUsers), rankingDataset.UserCount())); err != nil {
@@ -143,12 +146,14 @@ func (m *Master) runLoadDatasetTask() error {
 		log.Logger().Error("failed to write number of negative feedbacks", zap.Error(err))
 	}
 
+	log.Logger().Debug("evaluate positive feedback rate")
 	// evaluate positive feedback rate
 	measurement := evaluator.Evaluate()
 	if err = m.RestServer.InsertMeasurement(ctx, measurement...); err != nil {
 		log.Logger().Error("failed to insert measurement", zap.Error(err))
 	}
 
+	log.Logger().Debug("collect active users and items")
 	// collect active users and items
 	activeUsers, activeItems, inactiveUsers, inactiveItems := 0, 0, 0, 0
 	for _, userFeedback := range rankingDataset.UserFeedback {
@@ -170,11 +175,13 @@ func (m *Master) runLoadDatasetTask() error {
 	InactiveUsersTotal.Set(float64(inactiveUsers))
 	InactiveItemsTotal.Set(float64(inactiveItems))
 
+	log.Logger().Debug("write categories to cache")
 	// write categories to cache
 	if err = m.CacheClient.SetSet(ctx, cache.ItemCategories, rankingDataset.CategorySet.List()...); err != nil {
 		log.Logger().Error("failed to write categories to cache", zap.Error(err))
 	}
 
+	log.Logger().Debug("split ranking dataset")
 	// split ranking dataset
 	startTime := time.Now()
 	m.rankingDataMutex.Lock()
@@ -185,6 +192,7 @@ func (m *Master) runLoadDatasetTask() error {
 	MemoryInUseBytesVec.WithLabelValues("collaborative_filtering_train_set").Set(float64(m.rankingTrainSet.Bytes()))
 	MemoryInUseBytesVec.WithLabelValues("collaborative_filtering_test_set").Set(float64(m.rankingTestSet.Bytes()))
 
+	log.Logger().Debug("split click dataset")
 	// split click dataset
 	startTime = time.Now()
 	m.clickDataMutex.Lock()
@@ -1649,10 +1657,13 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 		zap.Int("n_valid_positive", clickDataset.PositiveCount),
 		zap.Int("n_valid_negative", clickDataset.NegativeCount),
 		zap.Duration("used_time", time.Since(start)))
+	log.Logger().Debug("taskMonitor.Update")
 	m.taskMonitor.Update(TaskLoadDataset, 5)
+	log.Logger().Debug("taskMonitor.Update  over ")
 	LoadDatasetStepSecondsVec.WithLabelValues("create_ranking_dataset").Set(time.Since(start).Seconds())
 
 	// collect latest items
+	log.Logger().Debug("collect latest items", zap.Int("len", len(latestItemsFilters)))
 	latestItems = make(map[string][]cache.Scored)
 	for category, latestItemsFilter := range latestItemsFilters {
 		items, scores := latestItemsFilter.PopAll()
@@ -1660,11 +1671,13 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	}
 
 	// collect popular items
+	log.Logger().Debug(" collect popular items", zap.Int("len", len(popularCount)))
 	popularItemFilters := make(map[string]*heap.TopKFilter[string, float64])
 	popularItemFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
 	for itemIndex, val := range popularCount {
 		itemId := rankingDataset.ItemIndex.ToName(int32(itemIndex))
 		popularItemFilters[""].Push(itemId, float64(val))
+		log.Logger().Debug(" collect popular items category", zap.Int("len", len(rankingDataset.ItemCategories[itemIndex])))
 		for _, category := range rankingDataset.ItemCategories[itemIndex] {
 			if _, exist := popularItemFilters[category]; !exist {
 				popularItemFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
@@ -1673,11 +1686,13 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 		}
 	}
 	popularItems = make(map[string][]cache.Scored)
+	log.Logger().Debug(" collect popularItemFilter", zap.Int("len", len(popularItemFilters)))
 	for category, popularItemFilter := range popularItemFilters {
 		items, scores := popularItemFilter.PopAll()
 		popularItems[category] = cache.CreateScoredItems(items, scores)
 	}
 
+	log.Logger().Debug("taskMonitor.Finish")
 	m.taskMonitor.Finish(TaskLoadDataset)
 	return rankingDataset, clickDataset, latestItems, popularItems, nil
 }
