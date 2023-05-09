@@ -1678,7 +1678,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	for itemIndex, val := range popularCount {
 		itemId := rankingDataset.ItemIndex.ToName(int32(itemIndex))
 		popularItemFilters[""].Push(itemId, float64(val))
-		log.Logger().Debug(" collect popular items category", zap.Int("len", len(rankingDataset.ItemCategories[itemIndex])))
+		//log.Logger().Debug(" collect popular items category", zap.Int("len", len(rankingDataset.ItemCategories[itemIndex])))
 		for _, category := range rankingDataset.ItemCategories[itemIndex] {
 			if _, exist := popularItemFilters[category]; !exist {
 				popularItemFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)

@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
@@ -26,7 +27,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/scylladb/go-set/strset"
 	_ "github.com/sijms/go-ora/v2"
+	"github.com/zhenghaoz/gorse/base/log"
 	"github.com/zhenghaoz/gorse/storage"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	_ "modernc.org/sqlite"
@@ -39,6 +42,11 @@ const (
 	Postgres
 	SQLite
 	Oracle
+)
+
+var (
+	SortedSubTableModel = make(map[string]interface{})
+	lock                sync.RWMutex
 )
 
 type SQLValue struct {
@@ -58,9 +66,43 @@ type SQLSortedSet struct {
 	Score    float64 `gorm:"type:double precision;not null;index:name"`
 }
 
-func (ss SQLSortedSet) TableName() string {
-	return "sorted_set_" + ss.SubTable
+type ItemNeighborsSortedSet SQLSortedSet
+
+func (ss ItemNeighborsSortedSet) TableName() string { return "sorted_set_" + ItemNeighbors }
+
+type UserNeighborsSortedSet SQLSortedSet
+
+func (ss UserNeighborsSortedSet) TableName() string { return "sorted_set_" + UserNeighbors }
+
+type CollaborativeRecommendSortedSet SQLSortedSet
+
+func (ss CollaborativeRecommendSortedSet) TableName() string {
+	return "sorted_set_" + CollaborativeRecommend
 }
+
+type OfflineRecommendSortedSet SQLSortedSet
+
+func (ss OfflineRecommendSortedSet) TableName() string { return "sorted_set_" + OfflineRecommend }
+
+type LatestItemsSortedSet SQLSortedSet
+
+func (ss LatestItemsSortedSet) TableName() string { return "sorted_set_" + LatestItems }
+
+type PopularItemsSortedSet SQLSortedSet
+
+func (ss PopularItemsSortedSet) TableName() string { return "sorted_set_" + PopularItems }
+
+type HiddenItemsV2SortedSet SQLSortedSet
+
+func (ss HiddenItemsV2SortedSet) TableName() string { return "sorted_set_" + HiddenItemsV2 }
+
+type IgnoreItemsSortedSet SQLSortedSet
+
+func (ss IgnoreItemsSortedSet) TableName() string { return "sorted_set_" + IgnoreItems }
+
+type MeasurementsSortedSet SQLSortedSet
+
+func (ss MeasurementsSortedSet) TableName() string { return "sorted_set_" + Measurements }
 
 type SQLDatabase struct {
 	storage.TablePrefix
@@ -77,6 +119,32 @@ func (db *SQLDatabase) Ping() error {
 	return db.client.Ping()
 }
 
+func GetSortedSubTableModel(tableName string) interface{} {
+	lock.RLock()
+	defer lock.RUnlock()
+	tm := SortedSubTableModel[tableName]
+
+	if tm == nil {
+		panic(fmt.Errorf("GetSortedSubTableModel %v", tableName))
+	}
+
+	return tm
+}
+
+func init() {
+	lock.Lock()
+	SortedSubTableModel[ItemNeighbors] = &ItemNeighborsSortedSet{}
+	SortedSubTableModel[UserNeighbors] = &UserNeighborsSortedSet{}
+	SortedSubTableModel[CollaborativeRecommend] = &CollaborativeRecommendSortedSet{}
+	SortedSubTableModel[OfflineRecommend] = &OfflineRecommendSortedSet{}
+	SortedSubTableModel[LatestItems] = &LatestItemsSortedSet{}
+	SortedSubTableModel[PopularItems] = &PopularItemsSortedSet{}
+	SortedSubTableModel[HiddenItemsV2] = &HiddenItemsV2SortedSet{}
+	SortedSubTableModel[IgnoreItems] = &IgnoreItemsSortedSet{}
+	SortedSubTableModel[Measurements] = &MeasurementsSortedSet{}
+	lock.Unlock()
+}
+
 func (db *SQLDatabase) Init() error {
 	err := db.gormDB.AutoMigrate(&SQLValue{}, &SQLSet{})
 	if err != nil {
@@ -84,7 +152,9 @@ func (db *SQLDatabase) Init() error {
 	}
 
 	for _, st := range SortedSubTable {
-		err := db.gormDB.AutoMigrate(&SQLSortedSet{SubTable: st})
+		log.Logger().Info("AutoMigrate table",
+			zap.String("tablename", st))
+		err := db.gormDB.AutoMigrate(GetSortedSubTableModel(st))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -309,7 +379,7 @@ func (db *SQLDatabase) AddSorted(ctx context.Context, subTable string, sortedSet
 		Columns:   []clause.Column{{Name: "name"}, {Name: "member"}},
 		DoUpdates: clause.AssignmentColumns([]string{"score"}),
 	}).
-		Model(&SQLSortedSet{SubTable: subTable}).
+		Model(GetSortedSubTableModel(subTable)).
 		Create(rows).Error; err != nil {
 		return errors.Trace(err)
 	}
@@ -318,7 +388,7 @@ func (db *SQLDatabase) AddSorted(ctx context.Context, subTable string, sortedSet
 
 func (db *SQLDatabase) GetSorted(ctx context.Context, subTable string, key string, begin, end int) ([]Scored, error) {
 	tx := db.gormDB.WithContext(ctx).
-		Model(&SQLSortedSet{SubTable: subTable}).
+		Model(GetSortedSubTableModel(subTable)).
 		Select("member, score").
 		Where("name = ?", key).
 		Order("score DESC")
@@ -345,7 +415,7 @@ func (db *SQLDatabase) GetSorted(ctx context.Context, subTable string, key strin
 
 func (db *SQLDatabase) GetSortedByScore(ctx context.Context, subTable, key string, begin, end float64) ([]Scored, error) {
 	rs, err := db.gormDB.WithContext(ctx).
-		Model(&SQLSortedSet{SubTable: subTable}).
+		Model(GetSortedSubTableModel(subTable)).
 		Select("member, score").
 		Where("name = ? AND score >= ? AND score <= ?", key, begin, end).
 		Order("score").Rows()
@@ -366,14 +436,13 @@ func (db *SQLDatabase) GetSortedByScore(ctx context.Context, subTable, key strin
 
 func (db *SQLDatabase) RemSortedByScore(ctx context.Context, subTable, key string, begin, end float64) error {
 	err := db.gormDB.WithContext(ctx).
-		Model(&SQLSortedSet{SubTable: subTable}).
-		Delete(&SQLSortedSet{}, "name = ? AND ? <= score AND score <= ?", key, begin, end).Error
+		Delete(GetSortedSubTableModel(subTable), "name = ? AND ? <= score AND score <= ?", key, begin, end).Error
 	return errors.Trace(err)
 }
 
 func (db *SQLDatabase) SetSorted(ctx context.Context, subTable, key string, scores []Scored) error {
 	tx := db.gormDB.WithContext(ctx)
-	err := tx.Model(&SQLSortedSet{SubTable: subTable}).Delete(&SQLSortedSet{}, "name = ?", key).Error
+	err := tx.Delete(GetSortedSubTableModel(subTable), "name = ?", key).Error
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -393,7 +462,7 @@ func (db *SQLDatabase) SetSorted(ctx context.Context, subTable, key string, scor
 		err = tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "name"}, {Name: "member"}},
 			DoUpdates: clause.AssignmentColumns([]string{"score"}),
-		}).Model(&SQLSortedSet{SubTable: subTable}).Create(&rows).Error
+		}).Model(GetSortedSubTableModel(subTable)).Create(&rows).Error
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -411,6 +480,6 @@ func (db *SQLDatabase) RemSorted(ctx context.Context, subTable string, members .
 			Member: member.member,
 		}
 	})
-	err := db.gormDB.WithContext(ctx).Model(&SQLSortedSet{SubTable: subTable}).Delete(rows).Error
+	err := db.gormDB.WithContext(ctx).Model(GetSortedSubTableModel(subTable)).Delete(rows).Error
 	return errors.Trace(err)
 }
