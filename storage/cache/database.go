@@ -199,6 +199,10 @@ func Key(keys ...string) string {
 	if len(keys) == 0 {
 		return ""
 	}
+
+	if keys[0] == "" && len(keys) > 1 {
+		keys = keys[1:]
+	}
 	var builder strings.Builder
 	builder.WriteString(keys[0])
 	for _, key := range keys[1:] {

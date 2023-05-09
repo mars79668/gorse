@@ -16,8 +16,9 @@ package cache
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNoDatabase(t *testing.T) {
@@ -53,16 +54,16 @@ func TestNoDatabase(t *testing.T) {
 	err = database.RemSet(ctx, "", "")
 	assert.ErrorIs(t, err, ErrNoDatabase)
 
-	_, err = database.GetSorted(ctx, "", 0, 0)
+	_, err = database.GetSorted(ctx, "test", "", 0, 0)
 	assert.ErrorIs(t, err, ErrNoDatabase)
-	_, err = database.GetSortedByScore(ctx, "", 0, 0)
+	_, err = database.GetSortedByScore(ctx, "test", "", 0, 0)
 	assert.ErrorIs(t, err, ErrNoDatabase)
-	err = database.RemSortedByScore(ctx, "", 0, 0)
+	err = database.RemSortedByScore(ctx, "test", "", 0, 0)
 	assert.ErrorIs(t, err, ErrNoDatabase)
-	err = database.SetSorted(ctx, "", nil)
+	err = database.SetSorted(ctx, "test", "", nil)
 	assert.ErrorIs(t, err, ErrNoDatabase)
-	err = database.AddSorted(ctx)
+	err = database.AddSorted(ctx, "test")
 	assert.ErrorIs(t, err, ErrNoDatabase)
-	err = database.RemSorted(ctx)
+	err = database.RemSorted(ctx, "test")
 	assert.ErrorIs(t, err, ErrNoDatabase)
 }
