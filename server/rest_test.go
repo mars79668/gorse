@@ -222,7 +222,7 @@ func (suite *ServerTestSuite) TestItems() {
 		},
 	}
 	// insert popular scores
-	err := suite.CacheClient.SetSorted(ctx, cache.PopularItems, []cache.Scored{
+	err := suite.CacheClient.SetSorted(ctx, cache.PopularItems, "", []cache.Scored{
 		{Id: "0", Score: 10},
 		{Id: "2", Score: 12},
 		{Id: "4", Score: 14},
@@ -770,21 +770,22 @@ func (suite *ServerTestSuite) TestFeedback() {
 func (suite *ServerTestSuite) TestSort() {
 	ctx := context.Background()
 	type ListOperator struct {
-		Name string
-		Key  string
-		Get  string
+		Name  string
+		Table string
+		Key   string
+		Get   string
 	}
 	operators := []ListOperator{
 		// TODO: Support hide users in the future.
 		//{"User Neighbors", cache.Key(cache.UserNeighbors, "0"), "/api/user/0/neighbors"},
-		{"Item Neighbors", cache.Key(cache.ItemNeighbors, "0"), "/api/item/0/neighbors"},
-		{"Item Neighbors in Category", cache.Key(cache.ItemNeighbors, "0", "0"), "/api/item/0/neighbors/0"},
-		{"Latest Items", cache.LatestItems, "/api/latest/"},
-		{"Latest Items in Category", cache.Key(cache.LatestItems, "0"), "/api/latest/0"},
-		{"Popular Items", cache.PopularItems, "/api/popular/"},
-		{"Popular Items in Category", cache.Key(cache.PopularItems, "0"), "/api/popular/0"},
-		{"Offline Recommend", cache.Key(cache.OfflineRecommend, "0"), "/api/intermediate/recommend/0"},
-		{"Offline Recommend in Category", cache.Key(cache.OfflineRecommend, "0", "0"), "/api/intermediate/recommend/0/0"},
+		{"Item Neighbors", cache.ItemNeighbors, "0", "/api/item/0/neighbors"},
+		{"Item Neighbors in Category", cache.ItemNeighbors, cache.Key("0", "0"), "/api/item/0/neighbors/0"},
+		{"Latest Items", cache.LatestItems, "", "/api/latest/"},
+		{"Latest Items in Category", cache.LatestItems, "0", "/api/latest/0"},
+		{"Popular Items", cache.PopularItems, "", "/api/popular/"},
+		{"Popular Items in Category", cache.PopularItems, "0", "/api/popular/0"},
+		{"Offline Recommend", cache.OfflineRecommend, "0", "/api/intermediate/recommend/0"},
+		{"Offline Recommend in Category", cache.OfflineRecommend, cache.Key("0", "0"), "/api/intermediate/recommend/0/0"},
 	}
 
 	for i, operator := range operators {
@@ -797,7 +798,7 @@ func (suite *ServerTestSuite) TestSort() {
 				{strconv.Itoa(i) + "3", 97},
 				{strconv.Itoa(i) + "4", 96},
 			}
-			err := suite.CacheClient.SetSorted(ctx, operator.Key, scores)
+			err := suite.CacheClient.SetSorted(ctx, operator.Table, operator.Key, scores)
 			assert.NoError(t, err)
 			// hidden item
 			err = NewCacheModification(suite.CacheClient, suite.HiddenItemsManager).HideItem(strconv.Itoa(i) + "3").Exec()
@@ -967,12 +968,12 @@ func (suite *ServerTestSuite) TestGetRecommends() {
 	ctx := context.Background()
 	t := suite.T()
 	// insert hidden items
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"), []cache.Scored{{"0", 100}})
+	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", []cache.Scored{{"0", 100}})
 	assert.NoError(t, err)
 	err = NewCacheModification(suite.CacheClient, suite.HiddenItemsManager).HideItem("0").Exec()
 	assert.NoError(t, err)
 	// insert recommendation
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", []cache.Scored{
 		{Id: "1", Score: 99},
 		{Id: "2", Score: 98},
 		{Id: "3", Score: 97},
@@ -1076,12 +1077,12 @@ func (suite *ServerTestSuite) TestGetRecommendsWithReplacement() {
 	t := suite.T()
 	suite.Config.Recommend.Replacement.EnableReplacement = true
 	// insert hidden items
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"), []cache.Scored{{"0", 100}})
+	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", []cache.Scored{{"0", 100}})
 	assert.NoError(t, err)
 	err = NewCacheModification(suite.CacheClient, suite.HiddenItemsManager).HideItem("0").Exec()
 	assert.NoError(t, err)
 	// insert recommendation
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", []cache.Scored{
 		{Id: "1", Score: 99},
 		{Id: "2", Score: 98},
 		{Id: "3", Score: 97},
@@ -1126,7 +1127,7 @@ func (suite *ServerTestSuite) TestServerGetRecommendsFallbackItemBasedSimilar() 
 	suite.Config.Recommend.Online.NumFeedbackFallbackItemBased = 4
 	suite.Config.Recommend.DataSource.PositiveFeedbackTypes = []string{"a"}
 	// insert recommendation
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"),
+	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0",
 		[]cache.Scored{{"1", 99}, {"2", 98}, {"3", 97}, {"4", 96}})
 	assert.NoError(t, err)
 	// insert feedback
@@ -1148,25 +1149,25 @@ func (suite *ServerTestSuite) TestServerGetRecommendsFallbackItemBasedSimilar() 
 		End()
 
 	// insert similar items
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "1"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "1", []cache.Scored{
 		{"2", 100000},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "2"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "2", []cache.Scored{
 		{"3", 100000},
 		{"8", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "3"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "3", []cache.Scored{
 		{"4", 100000},
 		{"7", 1},
 		{"8", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "4"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "4", []cache.Scored{
 		{"1", 100000},
 		{"6", 1},
 		{"7", 1},
@@ -1174,7 +1175,7 @@ func (suite *ServerTestSuite) TestServerGetRecommendsFallbackItemBasedSimilar() 
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "5"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "5", []cache.Scored{
 		{"1", 1},
 		{"6", 1},
 		{"7", 100000},
@@ -1184,21 +1185,21 @@ func (suite *ServerTestSuite) TestServerGetRecommendsFallbackItemBasedSimilar() 
 	assert.NoError(t, err)
 
 	// insert similar items of category *
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "1", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("1", "*"), []cache.Scored{
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "2", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("2", "*"), []cache.Scored{
 		{"3", 100000},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "3", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("3", "*"), []cache.Scored{
 		{"7", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "4", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("4", "*"), []cache.Scored{
 		{"1", 100000},
 		{"7", 1},
 		{"9", 1},
@@ -1236,7 +1237,7 @@ func (suite *ServerTestSuite) TestGetRecommendsFallbackUserBasedSimilar() {
 	ctx := context.Background()
 	t := suite.T()
 	// insert recommendation
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"),
+	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0",
 		[]cache.Scored{{"1", 99}, {"2", 98}, {"3", 97}, {"4", 96}})
 	assert.NoError(t, err)
 	// insert feedback
@@ -1256,7 +1257,7 @@ func (suite *ServerTestSuite) TestGetRecommendsFallbackUserBasedSimilar() {
 		Body(`{"RowAffected": 4}`).
 		End()
 	// insert similar users
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, "0"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.UserNeighbors, "0", []cache.Scored{
 		{"1", 2},
 		{"2", 1.5},
 		{"3", 1},
@@ -1312,31 +1313,31 @@ func (suite *ServerTestSuite) TestGetRecommendsFallbackPreCached() {
 	ctx := context.Background()
 	t := suite.T()
 	// insert offline recommendation
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"),
+	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0",
 		[]cache.Scored{{"1", 99}, {"2", 98}, {"3", 97}, {"4", 96}})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0", "*"),
+	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, cache.Key("0", "*"),
 		[]cache.Scored{{"101", 99}, {"102", 98}, {"103", 97}, {"104", 96}})
 	assert.NoError(t, err)
 	// insert latest
-	err = suite.CacheClient.SetSorted(ctx, cache.LatestItems,
+	err = suite.CacheClient.SetSorted(ctx, cache.LatestItems, "",
 		[]cache.Scored{{"5", 95}, {"6", 94}, {"7", 93}, {"8", 92}})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.LatestItems, "*"),
+	err = suite.CacheClient.SetSorted(ctx, cache.LatestItems, "*",
 		[]cache.Scored{{"105", 95}, {"106", 94}, {"107", 93}, {"108", 92}})
 	assert.NoError(t, err)
 	// insert popular
-	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems,
+	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "",
 		[]cache.Scored{{"9", 91}, {"10", 90}, {"11", 89}, {"12", 88}})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.PopularItems, "*"),
+	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "*",
 		[]cache.Scored{{"109", 91}, {"110", 90}, {"111", 89}, {"112", 88}})
 	assert.NoError(t, err)
 	// insert collaborative filtering
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "0"),
+	err = suite.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, "0",
 		[]cache.Scored{{"13", 79}, {"14", 78}, {"15", 77}, {"16", 76}})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "0", "*"),
+	err = suite.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, cache.Key("0", "*"),
 		[]cache.Scored{{"113", 79}, {"114", 78}, {"115", 77}, {"116", 76}})
 	assert.NoError(t, err)
 	// test popular fallback
@@ -1443,26 +1444,26 @@ func (suite *ServerTestSuite) TestSessionRecommend() {
 		End()
 
 	// insert similar items
-	err := suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "1"), []cache.Scored{
+	err := suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "1", []cache.Scored{
 		{"2", 100000},
 		{"9", 1},
 		{"100", 100000},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "2"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "2", []cache.Scored{
 		{"3", 100000},
 		{"8", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "3"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "3", []cache.Scored{
 		{"4", 100000},
 		{"7", 1},
 		{"8", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "4"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "4", []cache.Scored{
 		{"1", 100000},
 		{"6", 1},
 		{"7", 1},
@@ -1470,7 +1471,7 @@ func (suite *ServerTestSuite) TestSessionRecommend() {
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "5"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "5", []cache.Scored{
 		{"1", 1},
 		{"6", 1},
 		{"7", 100000},
@@ -1480,21 +1481,21 @@ func (suite *ServerTestSuite) TestSessionRecommend() {
 	assert.NoError(t, err)
 
 	// insert similar items of category *
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "1", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("1", "*"), []cache.Scored{
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "2", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("2", "*"), []cache.Scored{
 		{"3", 100000},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "3", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("3", "*"), []cache.Scored{
 		{"7", 1},
 		{"9", 1},
 	})
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "4", "*"), []cache.Scored{
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("4", "*"), []cache.Scored{
 		{"1", 100000},
 		{"7", 1},
 		{"9", 1},
@@ -1578,13 +1579,13 @@ func (suite *ServerTestSuite) TestVisibility() {
 		scores = append(scores, cache.Scored{Id: strconv.Itoa(i), Score: float64(time.Date(1989, 6, i+1, 1, 1, 1, 1, time.UTC).Unix())})
 	}
 	lo.Reverse(scores)
-	err := suite.CacheClient.SetSorted(ctx, cache.LatestItems, scores)
+	err := suite.CacheClient.SetSorted(ctx, cache.LatestItems, "", scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "", scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "100"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "100", scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "100"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "100", scores)
 	assert.NoError(t, err)
 
 	// delete item
@@ -1720,13 +1721,13 @@ func (suite *ServerTestSuite) TestVisibility() {
 		End()
 
 	// insert cache
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.LatestItems, "a"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.LatestItems, "a", scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.PopularItems, "a"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "a", scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "100", "a"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key("100", "a"), scores)
 	assert.NoError(t, err)
-	err = suite.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "100", "a"), scores)
+	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, cache.Key("100", "a"), scores)
 	assert.NoError(t, err)
 
 	// delete category

@@ -564,7 +564,7 @@ func ParseDuration(request *restful.Request, name string) (time.Duration, error)
 	return time.ParseDuration(valueString)
 }
 
-func (s *RestServer) getSort(key, category string, isItem bool, request *restful.Request, response *restful.Response) {
+func (s *RestServer) getSort(subTable, key, category string, isItem bool, request *restful.Request, response *restful.Response) {
 	var (
 		ctx    = request.Request.Context()
 		n      int
@@ -585,7 +585,7 @@ func (s *RestServer) getSort(key, category string, isItem bool, request *restful
 	userId = request.QueryParameter("user-id")
 
 	// Get the popular list
-	items, err := s.CacheClient.GetSorted(ctx, cache.Key(key, category), offset, s.Config.Recommend.CacheSize)
+	items, err := s.CacheClient.GetSorted(ctx, subTable, cache.Key(key, category), offset, s.Config.Recommend.CacheSize)
 	if err != nil {
 		InternalServerError(response, err)
 		return
@@ -624,13 +624,13 @@ func (s *RestServer) getSort(key, category string, isItem bool, request *restful
 func (s *RestServer) getPopular(request *restful.Request, response *restful.Response) {
 	category := request.PathParameter("category")
 	log.ResponseLogger(response).Debug("get category popular items in category", zap.String("category", category))
-	s.getSort(cache.PopularItems, category, true, request, response)
+	s.getSort(cache.PopularItems, "", category, true, request, response)
 }
 
 func (s *RestServer) getLatest(request *restful.Request, response *restful.Response) {
 	category := request.PathParameter("category")
 	log.ResponseLogger(response).Debug("get category latest items in category", zap.String("category", category))
-	s.getSort(cache.LatestItems, category, true, request, response)
+	s.getSort(cache.LatestItems, "", category, true, request, response)
 }
 
 // get feedback by item-id with feedback type
@@ -669,14 +669,14 @@ func (s *RestServer) getItemNeighbors(request *restful.Request, response *restfu
 	// Get item id
 	itemId := request.PathParameter("item-id")
 	category := request.PathParameter("category")
-	s.getSort(cache.Key(cache.ItemNeighbors, itemId), category, true, request, response)
+	s.getSort(cache.ItemNeighbors, itemId, category, true, request, response)
 }
 
 // getUserNeighbors gets neighbors of a user from database.
 func (s *RestServer) getUserNeighbors(request *restful.Request, response *restful.Response) {
 	// Get item id
 	userId := request.PathParameter("user-id")
-	s.getSort(cache.Key(cache.UserNeighbors, userId), "", false, request, response)
+	s.getSort(cache.UserNeighbors, userId, "", false, request, response)
 }
 
 // getCollaborative gets cached recommended items from database.
@@ -684,7 +684,7 @@ func (s *RestServer) getCollaborative(request *restful.Request, response *restfu
 	// Get user id
 	userId := request.PathParameter("user-id")
 	category := request.PathParameter("category")
-	s.getSort(cache.Key(cache.OfflineRecommend, userId), category, true, request, response)
+	s.getSort(cache.OfflineRecommend, userId, category, true, request, response)
 }
 
 // Recommend items to users.
@@ -760,7 +760,7 @@ type recommendContext struct {
 
 func (s *RestServer) createRecommendContext(ctx context.Context, userId, category string, n int) (*recommendContext, error) {
 	// pull ignored items
-	ignoreItems, err := s.CacheClient.GetSortedByScore(ctx, cache.Key(cache.IgnoreItems, userId),
+	ignoreItems, err := s.CacheClient.GetSortedByScore(ctx, cache.IgnoreItems, userId,
 		math.Inf(-1), float64(time.Now().Add(s.Config.Server.ClockError).Unix()))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -833,7 +833,7 @@ type Recommender func(ctx *recommendContext) error
 func (s *RestServer) RecommendOffline(ctx *recommendContext) error {
 	if len(ctx.results) < ctx.n {
 		start := time.Now()
-		recommendation, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.OfflineRecommend, ctx.userId, ctx.category), 0, s.Config.Recommend.CacheSize)
+		recommendation, err := s.CacheClient.GetSorted(ctx.context, cache.OfflineRecommend, cache.Key(ctx.userId, ctx.category), 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -854,7 +854,7 @@ func (s *RestServer) RecommendOffline(ctx *recommendContext) error {
 func (s *RestServer) RecommendCollaborative(ctx *recommendContext) error {
 	if len(ctx.results) < ctx.n {
 		start := time.Now()
-		collaborativeRecommendation, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.CollaborativeRecommend, ctx.userId, ctx.category), 0, s.Config.Recommend.CacheSize)
+		collaborativeRecommendation, err := s.CacheClient.GetSorted(ctx.context, cache.CollaborativeRecommend, cache.Key(ctx.userId, ctx.category), 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -881,7 +881,7 @@ func (s *RestServer) RecommendUserBased(ctx *recommendContext) error {
 		start := time.Now()
 		candidates := make(map[string]float64)
 		// load similar users
-		similarUsers, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.UserNeighbors, ctx.userId), 0, s.Config.Recommend.CacheSize)
+		similarUsers, err := s.CacheClient.GetSorted(ctx.context, cache.UserNeighbors, ctx.userId, 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -943,7 +943,7 @@ func (s *RestServer) RecommendItemBased(ctx *recommendContext) error {
 		candidates := make(map[string]float64)
 		for _, feedback := range userFeedback {
 			// load similar items
-			similarItems, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.ItemNeighbors, feedback.ItemId, ctx.category), 0, s.Config.Recommend.CacheSize)
+			similarItems, err := s.CacheClient.GetSorted(ctx.context, cache.ItemNeighbors, cache.Key(feedback.ItemId, ctx.category), 0, s.Config.Recommend.CacheSize)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -978,7 +978,7 @@ func (s *RestServer) RecommendLatest(ctx *recommendContext) error {
 			return errors.Trace(err)
 		}
 		start := time.Now()
-		items, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.LatestItems, ctx.category), 0, s.Config.Recommend.CacheSize)
+		items, err := s.CacheClient.GetSorted(ctx.context, cache.LatestItems, ctx.category, 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1003,7 +1003,7 @@ func (s *RestServer) RecommendPopular(ctx *recommendContext) error {
 			return errors.Trace(err)
 		}
 		start := time.Now()
-		items, err := s.CacheClient.GetSorted(ctx.context, cache.Key(cache.PopularItems, ctx.category), 0, s.Config.Recommend.CacheSize)
+		items, err := s.CacheClient.GetSorted(ctx.context, cache.PopularItems, ctx.category, 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1149,7 +1149,7 @@ func (s *RestServer) sessionRecommend(request *restful.Request, response *restfu
 	usedFeedbackCount := 0
 	for _, feedback := range userFeedback {
 		// load similar items
-		similarItems, err := s.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, feedback.ItemId, category), 0, s.Config.Recommend.CacheSize)
+		similarItems, err := s.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(feedback.ItemId, category), 0, s.Config.Recommend.CacheSize)
 		if err != nil {
 			BadRequest(response, err)
 			return
@@ -1936,7 +1936,7 @@ func (m Measurement) GetScore() cache.Scored {
 }
 
 func (s *RestServer) GetMeasurements(ctx context.Context, name string, n int) ([]Measurement, error) {
-	scores, err := s.CacheClient.GetSorted(ctx, cache.Key(cache.Measurements, name), 0, n-1)
+	scores, err := s.CacheClient.GetSorted(ctx, cache.Measurements, name, 0, n-1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1953,15 +1953,14 @@ func (s *RestServer) GetMeasurements(ctx context.Context, name string, n int) ([
 
 func (s *RestServer) InsertMeasurement(ctx context.Context, measurements ...Measurement) error {
 	sortedSets := lo.Map(measurements, func(m Measurement, _ int) cache.SortedSet {
-		name := cache.Key(cache.Measurements, m.Name)
 		score := m.GetScore()
-		err := s.CacheClient.RemSortedByScore(ctx, name, score.Score, score.Score)
+		err := s.CacheClient.RemSortedByScore(ctx, cache.Measurements, m.Name, score.Score, score.Score)
 		if err != nil {
 			log.Logger().Warn("failed to remove stale measurement", zap.Error(err))
 		}
-		return cache.Sorted(name, []cache.Scored{score})
+		return cache.Sorted(m.Name, []cache.Scored{score})
 	})
-	return s.CacheClient.AddSorted(ctx, sortedSets...)
+	return s.CacheClient.AddSorted(ctx, cache.Measurements, sortedSets...)
 }
 
 func (s *RestServer) getMeasurements(request *restful.Request, response *restful.Response) {
@@ -2038,9 +2037,9 @@ func (s *RestServer) InsertFeedbackToCache(ctx context.Context, feedback []data.
 	if !s.Config.Recommend.Replacement.EnableReplacement {
 		sortedSets := make([]cache.SortedSet, len(feedback))
 		for i, v := range feedback {
-			sortedSets[i] = cache.Sorted(cache.Key(cache.IgnoreItems, v.UserId), []cache.Scored{{Id: v.ItemId, Score: float64(v.Timestamp.Unix())}})
+			sortedSets[i] = cache.Sorted(v.UserId, []cache.Scored{{Id: v.ItemId, Score: float64(v.Timestamp.Unix())}})
 		}
-		if err := s.CacheClient.AddSorted(ctx, sortedSets...); err != nil {
+		if err := s.CacheClient.AddSorted(ctx, cache.IgnoreItems, sortedSets...); err != nil {
 			return errors.Trace(err)
 		}
 	}

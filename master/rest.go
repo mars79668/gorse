@@ -856,7 +856,7 @@ type ScoreUser struct {
 	Score float64
 }
 
-func (m *Master) getSort(key, category string, isItem bool, request *restful.Request, response *restful.Response, retType interface{}) {
+func (m *Master) getSort(subTable, key, category string, isItem bool, request *restful.Request, response *restful.Response, retType interface{}) {
 	ctx := context.Background()
 	if request != nil && request.Request != nil {
 		ctx = request.Request.Context()
@@ -873,7 +873,7 @@ func (m *Master) getSort(key, category string, isItem bool, request *restful.Req
 		return
 	}
 	// Get the popular list
-	scores, err := m.CacheClient.GetSorted(ctx, cache.Key(key, category), offset, m.Config.Recommend.CacheSize)
+	scores, err := m.CacheClient.GetSorted(ctx, subTable, cache.Key(key, category), offset, m.Config.Recommend.CacheSize)
 	if err != nil {
 		server.InternalServerError(response, err)
 		return
@@ -916,28 +916,28 @@ func (m *Master) getSort(key, category string, isItem bool, request *restful.Req
 // getPopular gets popular items from database.
 func (m *Master) getPopular(request *restful.Request, response *restful.Response) {
 	category := request.PathParameter("category")
-	m.getSort(cache.PopularItems, category, true, request, response, data.Item{})
+	m.getSort(cache.PopularItems, "", category, true, request, response, data.Item{})
 }
 
 func (m *Master) getLatest(request *restful.Request, response *restful.Response) {
 	category := request.PathParameter("category")
-	m.getSort(cache.LatestItems, category, true, request, response, data.Item{})
+	m.getSort(cache.LatestItems, "", category, true, request, response, data.Item{})
 }
 
 func (m *Master) getItemNeighbors(request *restful.Request, response *restful.Response) {
 	itemId := request.PathParameter("item-id")
-	m.getSort(cache.Key(cache.ItemNeighbors, itemId), "", true, request, response, data.Item{})
+	m.getSort(cache.ItemNeighbors, itemId, "", true, request, response, data.Item{})
 }
 
 func (m *Master) getItemCategorizedNeighbors(request *restful.Request, response *restful.Response) {
 	itemId := request.PathParameter("item-id")
 	category := request.PathParameter("category")
-	m.getSort(cache.Key(cache.ItemNeighbors, itemId), category, true, request, response, data.Item{})
+	m.getSort(cache.ItemNeighbors, itemId, category, true, request, response, data.Item{})
 }
 
 func (m *Master) getUserNeighbors(request *restful.Request, response *restful.Response) {
 	userId := request.PathParameter("user-id")
-	m.getSort(cache.Key(cache.UserNeighbors, userId), "", false, request, response, data.User{})
+	m.getSort(cache.UserNeighbors, userId, "", false, request, response, data.User{})
 }
 
 func (m *Master) importExportUsers(response http.ResponseWriter, request *http.Request) {

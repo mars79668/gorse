@@ -88,7 +88,7 @@ func (m *Master) runLoadDatasetTask() error {
 	log.Logger().Debug("save popular items to cache")
 	// save popular items to cache
 	for category, items := range popularItems {
-		if err = m.CacheClient.SetSorted(ctx, cache.Key(cache.PopularItems, category), items); err != nil {
+		if err = m.CacheClient.SetSorted(ctx, cache.PopularItems, category, items); err != nil {
 			log.Logger().Error("failed to cache popular items", zap.Error(err))
 		}
 	}
@@ -99,13 +99,13 @@ func (m *Master) runLoadDatasetTask() error {
 	log.Logger().Debug("save the latest items to cache")
 	// save the latest items to cache
 	for category, items := range latestItems {
-		if err = m.CacheClient.AddSorted(ctx, cache.Sorted(cache.Key(cache.LatestItems, category), items)); err != nil {
+		if err = m.CacheClient.AddSorted(ctx, cache.LatestItems, cache.Sorted(category, items)); err != nil {
 			log.Logger().Error("failed to cache latest items", zap.Error(err))
 		}
 		// reclaim outdated items
 		if len(items) > 0 {
 			threshold := items[len(items)-1].Score - 1
-			if err = m.CacheClient.RemSortedByScore(ctx, cache.Key(cache.LatestItems, category), math.Inf(-1), threshold); err != nil {
+			if err = m.CacheClient.RemSortedByScore(ctx, cache.LatestItems, category, math.Inf(-1), threshold); err != nil {
 				log.Logger().Error("failed to reclaim outdated items", zap.Error(err))
 			}
 		}
@@ -413,7 +413,7 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 			for i := range recommends {
 				recommends[i] = dataset.ItemIndex.ToName(elem[i])
 			}
-			if err := m.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, itemId, category),
+			if err := m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category),
 				cache.CreateScoredItems(recommends, scores)); err != nil {
 				return errors.Trace(err)
 			}
@@ -508,7 +508,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 					itemScores[i].Id = dataset.ItemIndex.ToName(neighbors[category][i])
 					itemScores[i].Score = float64(-scores[category][i])
 				}
-				if err := m.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, itemId, category), itemScores); err != nil {
+				if err := m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), itemScores); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -728,7 +728,7 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 		for i := range recommends {
 			recommends[i] = dataset.UserIndex.ToName(elem[i])
 		}
-		if err := m.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, userId),
+		if err := m.CacheClient.SetSorted(ctx, cache.UserNeighbors, userId,
 			cache.CreateScoredItems(recommends, scores)); err != nil {
 			return errors.Trace(err)
 		}
@@ -812,7 +812,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 			itemScores[i].Id = dataset.UserIndex.ToName(neighbors[i])
 			itemScores[i].Score = float64(-scores[i])
 		}
-		if err := m.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, userId), itemScores); err != nil {
+		if err := m.CacheClient.SetSorted(ctx, cache.UserNeighbors, userId, itemScores); err != nil {
 			return errors.Trace(err)
 		}
 		if err := m.CacheClient.Set(
@@ -870,7 +870,7 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	)
 	ctx := context.Background()
 	// check cache
-	if items, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, userId), 0, -1); err != nil {
+	if items, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, -1); err != nil {
 		log.Logger().Error("failed to load user neighbors", zap.String("user_id", userId), zap.Error(err))
 		return true
 	} else if len(items) == 0 {
@@ -925,7 +925,7 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 
 	// check cache
 	for _, category := range append([]string{""}, categories...) {
-		items, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, itemId, category), 0, -1)
+		items, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, -1)
 		if err != nil {
 			log.Logger().Error("failed to load item neighbors", zap.String("item_id", itemId), zap.Error(err))
 			return true
@@ -1361,7 +1361,7 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			// delete user cache
 			switch splits[0] {
 			case cache.UserNeighbors, cache.IgnoreItems, cache.CollaborativeRecommend, cache.OfflineRecommend:
-				err = t.CacheClient.SetSorted(ctx, s, nil)
+				err = t.CacheClient.SetSorted(ctx, splits[0], s, nil)
 			case cache.UserNeighborsDigest, cache.OfflineRecommendDigest,
 				cache.LastModifyUserTime, cache.LastUpdateUserNeighborsTime, cache.LastUpdateUserRecommendTime:
 				err = t.CacheClient.Delete(ctx, s)
@@ -1387,7 +1387,7 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			// delete item cache
 			switch splits[0] {
 			case cache.ItemNeighbors:
-				err = t.CacheClient.SetSorted(ctx, s, nil)
+				err = t.CacheClient.SetSorted(ctx, cache.ItemNeighbors, s, nil)
 			case cache.ItemNeighborsDigest, cache.LastModifyItemTime, cache.LastUpdateItemNeighborsTime:
 				err = t.CacheClient.Delete(ctx, s)
 			}
@@ -1399,7 +1399,8 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 		return nil
 	})
 	// remove stale hidden items
-	if err := t.CacheClient.RemSortedByScore(ctx, cache.HiddenItemsV2, math.Inf(-1), float64(time.Now().Add(-t.Config.Recommend.CacheExpire).Unix())); err != nil {
+	if err := t.CacheClient.RemSortedByScore(ctx, cache.HiddenItemsV2, cache.HiddenItemsV2,
+		math.Inf(-1), float64(time.Now().Add(-t.Config.Recommend.CacheExpire).Unix())); err != nil {
 		return errors.Trace(err)
 	}
 	t.taskMonitor.Finish(TaskCacheGarbageCollection)

@@ -17,13 +17,14 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis/v9"
-	"github.com/juju/errors"
-	"github.com/zhenghaoz/gorse/storage"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis/v9"
+	"github.com/juju/errors"
+	"github.com/zhenghaoz/gorse/storage"
 )
 
 func ParseRedisClusterURL(redisURL string) (*redis.ClusterOptions, error) {
@@ -354,8 +355,8 @@ func (r *Redis) RemSet(ctx context.Context, key string, members ...string) error
 }
 
 // GetSorted get scores from sorted set.
-func (r *Redis) GetSorted(ctx context.Context, key string, begin, end int) ([]Scored, error) {
-	members, err := r.client.ZRevRangeWithScores(ctx, r.Key(key), int64(begin), int64(end)).Result()
+func (r *Redis) GetSorted(ctx context.Context, subTable, key string, begin, end int) ([]Scored, error) {
+	members, err := r.client.ZRevRangeWithScores(ctx, r.Key(Key(subTable, key)), int64(begin), int64(end)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -366,8 +367,8 @@ func (r *Redis) GetSorted(ctx context.Context, key string, begin, end int) ([]Sc
 	return results, nil
 }
 
-func (r *Redis) GetSortedByScore(ctx context.Context, key string, begin, end float64) ([]Scored, error) {
-	members, err := r.client.ZRangeByScoreWithScores(ctx, r.Key(key), &redis.ZRangeBy{
+func (r *Redis) GetSortedByScore(ctx context.Context, subTable, key string, begin, end float64) ([]Scored, error) {
+	members, err := r.client.ZRangeByScoreWithScores(ctx, r.Key(Key(subTable, key)), &redis.ZRangeBy{
 		Min:    strconv.FormatFloat(begin, 'g', -1, 64),
 		Max:    strconv.FormatFloat(end, 'g', -1, 64),
 		Offset: 0,
@@ -383,15 +384,15 @@ func (r *Redis) GetSortedByScore(ctx context.Context, key string, begin, end flo
 	return results, nil
 }
 
-func (r *Redis) RemSortedByScore(ctx context.Context, key string, begin, end float64) error {
-	return r.client.ZRemRangeByScore(ctx, r.Key(key),
+func (r *Redis) RemSortedByScore(ctx context.Context, subTable, key string, begin, end float64) error {
+	return r.client.ZRemRangeByScore(ctx, r.Key(Key(subTable, key)),
 		strconv.FormatFloat(begin, 'g', -1, 64),
 		strconv.FormatFloat(end, 'g', -1, 64)).
 		Err()
 }
 
 // AddSorted add scores to sorted set.
-func (r *Redis) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
+func (r *Redis) AddSorted(ctx context.Context, subTable string, sortedSets ...SortedSet) error {
 	p := r.client.Pipeline()
 	for _, sorted := range sortedSets {
 		if len(sorted.scores) > 0 {
@@ -399,7 +400,7 @@ func (r *Redis) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
 			for _, score := range sorted.scores {
 				members = append(members, redis.Z{Member: score.Id, Score: score.Score})
 			}
-			p.ZAdd(ctx, r.Key(sorted.name), members...)
+			p.ZAdd(ctx, r.Key(Key(subTable, sorted.name)), members...)
 		}
 	}
 	_, err := p.Exec(ctx)
@@ -407,28 +408,28 @@ func (r *Redis) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
 }
 
 // SetSorted set scores in sorted set and clear previous scores.
-func (r *Redis) SetSorted(ctx context.Context, key string, scores []Scored) error {
+func (r *Redis) SetSorted(ctx context.Context, subTable, key string, scores []Scored) error {
 	members := make([]redis.Z, 0, len(scores))
 	for _, score := range scores {
 		members = append(members, redis.Z{Member: score.Id, Score: float64(score.Score)})
 	}
 	pipeline := r.client.Pipeline()
-	pipeline.Del(ctx, r.Key(key))
+	pipeline.Del(ctx, r.Key(Key(subTable, key)))
 	if len(scores) > 0 {
-		pipeline.ZAdd(ctx, r.Key(key), members...)
+		pipeline.ZAdd(ctx, r.Key(Key(subTable, key)), members...)
 	}
 	_, err := pipeline.Exec(ctx)
 	return err
 }
 
 // RemSorted method of NoDatabase returns ErrNoDatabase.
-func (r *Redis) RemSorted(ctx context.Context, members ...SetMember) error {
+func (r *Redis) RemSorted(ctx context.Context, subTable string, members ...SetMember) error {
 	if len(members) == 0 {
 		return nil
 	}
 	pipe := r.client.Pipeline()
 	for _, member := range members {
-		pipe.ZRem(ctx, r.Key(member.name), member.member)
+		pipe.ZRem(ctx, r.Key(Key(subTable, member.name)), member.member)
 	}
 	_, err := pipe.Exec(ctx)
 	return errors.Trace(err)

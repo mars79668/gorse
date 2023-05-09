@@ -587,7 +587,7 @@ func TestServer_SortedItems(t *testing.T) {
 		{"Item Neighbors in Category", cache.ItemNeighbors, "0/*", "/api/dashboard/item/0/neighbors/*"},
 		{"Latest Items", cache.LatestItems, "", "/api/dashboard/latest/"},
 		{"Popular Items", cache.PopularItems, "", "/api/dashboard/popular/"},
-		{"Latest Items in Category", cache.LatestItems, "*", "/api/dashboard/latest/*"},
+		{Name: "Latest Items in Category", Prefix: cache.LatestItems, Label: "*", Get: "/api/dashboard/latest/*"},
 		{"Popular Items in Category", cache.PopularItems, "*", "/api/dashboard/popular/*"},
 	}
 	for i, operator := range operators {
@@ -600,7 +600,7 @@ func TestServer_SortedItems(t *testing.T) {
 				{strconv.Itoa(i) + "3", 97},
 				{strconv.Itoa(i) + "4", 96},
 			}
-			err := s.CacheClient.SetSorted(ctx, cache.Key(operator.Prefix, operator.Label), scores)
+			err := s.CacheClient.SetSorted(ctx, operator.Prefix, operator.Label, scores)
 			assert.NoError(t, err)
 			err = server.NewCacheModification(s.CacheClient, s.HiddenItemsManager).HideItem(strconv.Itoa(i) + "3").Exec()
 			assert.NoError(t, err)
@@ -644,7 +644,7 @@ func TestServer_SortedUsers(t *testing.T) {
 			{"3", 97},
 			{"4", 96},
 		}
-		err := s.CacheClient.SetSorted(ctx, cache.Key(operator.Prefix, operator.Label), scores)
+		err := s.CacheClient.SetSorted(ctx, operator.Prefix, operator.Label, scores)
 		assert.NoError(t, err)
 		users := make([]ScoreUser, 0)
 		for _, score := range scores {
@@ -707,7 +707,7 @@ func TestServer_GetRecommends(t *testing.T) {
 		{"8", 92},
 	}
 	ctx := context.Background()
-	err := s.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "0"), itemIds)
+	err := s.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", itemIds)
 	assert.NoError(t, err)
 	// insert feedback
 	feedback := []data.Feedback{
@@ -763,9 +763,9 @@ func TestMaster_Purge(t *testing.T) {
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, []string{"a", "b", "c"}, set)
 
-	err = s.CacheClient.AddSorted(ctx, cache.Sorted("sorted", []cache.Scored{{Id: "a", Score: 1}, {Id: "b", Score: 2}, {Id: "c", Score: 3}}))
+	err = s.CacheClient.AddSorted(ctx, "test", cache.Sorted("sorted", []cache.Scored{{Id: "a", Score: 1}, {Id: "b", Score: 2}, {Id: "c", Score: 3}}))
 	assert.NoError(t, err)
-	z, err := s.CacheClient.GetSorted(ctx, "sorted", 0, -1)
+	z, err := s.CacheClient.GetSorted(ctx, "test", "sorted", 0, -1)
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, []cache.Scored{{Id: "a", Score: 1}, {Id: "b", Score: 2}, {Id: "c", Score: 3}}, z)
 
@@ -801,7 +801,7 @@ func TestMaster_Purge(t *testing.T) {
 	set, err = s.CacheClient.GetSet(ctx, "set")
 	assert.NoError(t, err)
 	assert.Empty(t, set)
-	z, err = s.CacheClient.GetSorted(ctx, "sorted", 0, -1)
+	z, err = s.CacheClient.GetSorted(ctx, "test", "sorted", 0, -1)
 	assert.NoError(t, err)
 	assert.Empty(t, z)
 

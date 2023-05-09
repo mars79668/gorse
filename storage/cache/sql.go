@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	_ "github.com/lib/pq"
@@ -27,7 +29,6 @@ import (
 	"github.com/zhenghaoz/gorse/storage"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"math"
 	_ "modernc.org/sqlite"
 )
 
@@ -51,9 +52,14 @@ type SQLSet struct {
 }
 
 type SQLSortedSet struct {
-	Name   string  `gorm:"type:varchar(256);primaryKey;index:name"`
-	Member string  `gorm:"type:varchar(256);primaryKey"`
-	Score  float64 `gorm:"type:double precision;not null;index:name"`
+	SubTable string  `gorm:"-"`
+	Name     string  `gorm:"type:varchar(256);primaryKey;index:name"`
+	Member   string  `gorm:"type:varchar(256);primaryKey"`
+	Score    float64 `gorm:"type:double precision;not null;index:name"`
+}
+
+func (ss SQLSortedSet) TableName() string {
+	return "sorted_set_" + ss.SubTable
 }
 
 type SQLDatabase struct {
@@ -72,7 +78,17 @@ func (db *SQLDatabase) Ping() error {
 }
 
 func (db *SQLDatabase) Init() error {
-	err := db.gormDB.AutoMigrate(&SQLValue{}, &SQLSet{}, &SQLSortedSet{})
+	err := db.gormDB.AutoMigrate(&SQLValue{}, &SQLSet{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, st := range SortedSubTable {
+		err := db.gormDB.AutoMigrate(&SQLSortedSet{SubTable: st})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(err)
 }
 
@@ -120,32 +136,41 @@ func (db *SQLDatabase) Scan(work func(string) error) error {
 		}
 	}
 
-	// scan sorted sets
-	sortedRows, err = db.gormDB.Table(db.SortedSetsTable()).Select("name").Rows()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer sortedRows.Close()
-	prevKey = ""
-	for sortedRows.Next() {
-		var key string
-		if err = sortedRows.Scan(&key); err != nil {
+	for _, subTable := range SortedSubTable {
+		// scan sorted sets
+		sortedRows, err = db.gormDB.Table(db.SortedSetsTable(subTable)).Select("name").Rows()
+		if err != nil {
 			return errors.Trace(err)
 		}
-		if key != prevKey {
-			if err = work(key); err != nil {
+		defer sortedRows.Close()
+		prevKey = ""
+		for sortedRows.Next() {
+			var key string
+			if err = sortedRows.Scan(&key); err != nil {
 				return errors.Trace(err)
 			}
-			prevKey = key
+			if key != prevKey {
+				if err = work(Key(subTable, key)); err != nil {
+					return errors.Trace(err)
+				}
+				prevKey = key
+			}
 		}
 	}
 	return nil
 }
 
 func (db *SQLDatabase) Purge() error {
-	tables := []string{db.ValuesTable(), db.SortedSetsTable(), db.SetsTable()}
+	tables := []string{db.ValuesTable(), db.SetsTable()}
 	for _, tableName := range tables {
 		err := db.gormDB.Exec(fmt.Sprintf("DELETE FROM %s", tableName)).Error
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, st := range SortedSubTable {
+		err := db.gormDB.Exec(fmt.Sprintf("DELETE FROM %s", db.SortedSetsTable(st))).Error
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -261,16 +286,17 @@ func (db *SQLDatabase) RemSet(ctx context.Context, key string, members ...string
 	return errors.Trace(err)
 }
 
-func (db *SQLDatabase) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
+func (db *SQLDatabase) AddSorted(ctx context.Context, subTable string, sortedSets ...SortedSet) error {
 	rows := make([]SQLSortedSet, 0, len(sortedSets))
 	memberSets := make(map[lo.Tuple2[string, string]]struct{})
 	for _, sortedSet := range sortedSets {
 		for _, member := range sortedSet.scores {
 			if _, exist := memberSets[lo.Tuple2[string, string]{sortedSet.name, member.Id}]; !exist {
 				rows = append(rows, SQLSortedSet{
-					Name:   sortedSet.name,
-					Member: member.Id,
-					Score:  member.Score,
+					SubTable: subTable,
+					Name:     sortedSet.name,
+					Member:   member.Id,
+					Score:    member.Score,
 				})
 				memberSets[lo.Tuple2[string, string]{sortedSet.name, member.Id}] = struct{}{}
 			}
@@ -282,14 +308,17 @@ func (db *SQLDatabase) AddSorted(ctx context.Context, sortedSets ...SortedSet) e
 	if err := db.gormDB.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}, {Name: "member"}},
 		DoUpdates: clause.AssignmentColumns([]string{"score"}),
-	}).Create(rows).Error; err != nil {
+	}).
+		Model(&SQLSortedSet{SubTable: subTable}).
+		Create(rows).Error; err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (db *SQLDatabase) GetSorted(ctx context.Context, key string, begin, end int) ([]Scored, error) {
-	tx := db.gormDB.WithContext(ctx).Table(db.SortedSetsTable()).
+func (db *SQLDatabase) GetSorted(ctx context.Context, subTable string, key string, begin, end int) ([]Scored, error) {
+	tx := db.gormDB.WithContext(ctx).
+		Model(&SQLSortedSet{SubTable: subTable}).
 		Select("member, score").
 		Where("name = ?", key).
 		Order("score DESC")
@@ -314,8 +343,9 @@ func (db *SQLDatabase) GetSorted(ctx context.Context, key string, begin, end int
 	return members, nil
 }
 
-func (db *SQLDatabase) GetSortedByScore(ctx context.Context, key string, begin, end float64) ([]Scored, error) {
-	rs, err := db.gormDB.WithContext(ctx).Table(db.SortedSetsTable()).
+func (db *SQLDatabase) GetSortedByScore(ctx context.Context, subTable, key string, begin, end float64) ([]Scored, error) {
+	rs, err := db.gormDB.WithContext(ctx).
+		Model(&SQLSortedSet{SubTable: subTable}).
 		Select("member, score").
 		Where("name = ? AND score >= ? AND score <= ?", key, begin, end).
 		Order("score").Rows()
@@ -334,14 +364,16 @@ func (db *SQLDatabase) GetSortedByScore(ctx context.Context, key string, begin, 
 	return members, nil
 }
 
-func (db *SQLDatabase) RemSortedByScore(ctx context.Context, key string, begin, end float64) error {
-	err := db.gormDB.WithContext(ctx).Delete(&SQLSortedSet{}, "name = ? AND ? <= score AND score <= ?", key, begin, end).Error
+func (db *SQLDatabase) RemSortedByScore(ctx context.Context, subTable, key string, begin, end float64) error {
+	err := db.gormDB.WithContext(ctx).
+		Model(&SQLSortedSet{SubTable: subTable}).
+		Delete(&SQLSortedSet{}, "name = ? AND ? <= score AND score <= ?", key, begin, end).Error
 	return errors.Trace(err)
 }
 
-func (db *SQLDatabase) SetSorted(ctx context.Context, key string, scores []Scored) error {
+func (db *SQLDatabase) SetSorted(ctx context.Context, subTable, key string, scores []Scored) error {
 	tx := db.gormDB.WithContext(ctx)
-	err := tx.Delete(&SQLSortedSet{}, "name = ?", key).Error
+	err := tx.Model(&SQLSortedSet{SubTable: subTable}).Delete(&SQLSortedSet{}, "name = ?", key).Error
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -361,7 +393,7 @@ func (db *SQLDatabase) SetSorted(ctx context.Context, key string, scores []Score
 		err = tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "name"}, {Name: "member"}},
 			DoUpdates: clause.AssignmentColumns([]string{"score"}),
-		}).Create(&rows).Error
+		}).Model(&SQLSortedSet{SubTable: subTable}).Create(&rows).Error
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -369,7 +401,7 @@ func (db *SQLDatabase) SetSorted(ctx context.Context, key string, scores []Score
 	return nil
 }
 
-func (db *SQLDatabase) RemSorted(ctx context.Context, members ...SetMember) error {
+func (db *SQLDatabase) RemSorted(ctx context.Context, subTable string, members ...SetMember) error {
 	if len(members) == 0 {
 		return nil
 	}
@@ -379,6 +411,6 @@ func (db *SQLDatabase) RemSorted(ctx context.Context, members ...SetMember) erro
 			Member: member.member,
 		}
 	})
-	err := db.gormDB.WithContext(ctx).Delete(rows).Error
+	err := db.gormDB.WithContext(ctx).Model(&SQLSortedSet{SubTable: subTable}).Delete(rows).Error
 	return errors.Trace(err)
 }

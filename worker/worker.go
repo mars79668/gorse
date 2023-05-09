@@ -620,7 +620,7 @@ func (w *Worker) Recommend(users []data.User) {
 				scores := make(map[string]float64)
 				for _, itemId := range positiveItems {
 					// load similar items
-					similarItems, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, itemId, category), 0, w.Config.Recommend.CacheSize)
+					similarItems, err := w.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, w.Config.Recommend.CacheSize)
 					if err != nil {
 						log.Logger().Error("failed to load similar items", zap.Error(err))
 						return errors.Trace(err)
@@ -658,7 +658,7 @@ func (w *Worker) Recommend(users []data.User) {
 			localStartTime := time.Now()
 			scores := make(map[string]float64)
 			// load similar users
-			similarUsers, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, userId), 0, w.Config.Recommend.CacheSize)
+			similarUsers, err := w.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, w.Config.Recommend.CacheSize)
 			if err != nil {
 				log.Logger().Error("failed to load similar users", zap.Error(err))
 				return errors.Trace(err)
@@ -711,7 +711,7 @@ func (w *Worker) Recommend(users []data.User) {
 		if w.Config.Recommend.Offline.EnableLatestRecommend {
 			localStartTime := time.Now()
 			for _, category := range append([]string{""}, itemCategories...) {
-				latestItems, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.LatestItems, category), 0, w.Config.Recommend.CacheSize)
+				latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.CacheSize)
 				if err != nil {
 					log.Logger().Error("failed to load latest items", zap.Error(err))
 					return errors.Trace(err)
@@ -731,7 +731,7 @@ func (w *Worker) Recommend(users []data.User) {
 		if w.Config.Recommend.Offline.EnablePopularRecommend {
 			localStartTime := time.Now()
 			for _, category := range append([]string{""}, itemCategories...) {
-				popularItems, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.PopularItems, category), 0, w.Config.Recommend.CacheSize)
+				popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.CacheSize)
 				if err != nil {
 					log.Logger().Error("failed to load popular items", zap.Error(err))
 					return errors.Trace(err)
@@ -789,7 +789,7 @@ func (w *Worker) Recommend(users []data.User) {
 				return errors.Trace(err)
 			}
 
-			if err = w.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, userId, category), results[category]); err != nil {
+			if err = w.CacheClient.SetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), results[category]); err != nil {
 				log.Logger().Error("failed to cache recommendation", zap.Error(err))
 				return errors.Trace(err)
 			}
@@ -861,7 +861,7 @@ func (w *Worker) collaborativeRecommendBruteForce(userId string, itemCategories 
 	for category, recItemsFilter := range recItemsFilters {
 		recommendItems, recommendScores := recItemsFilter.PopAll()
 		recommend[category] = recommendItems
-		if err := w.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, userId, category), cache.CreateScoredItems(recommendItems, recommendScores)); err != nil {
+		if err := w.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, cache.Key(userId, category), cache.CreateScoredItems(recommendItems, recommendScores)); err != nil {
 			log.Logger().Error("failed to cache collaborative filtering recommendation result", zap.String("user_id", userId), zap.Error(err))
 			return nil, 0, errors.Trace(err)
 		}
@@ -888,7 +888,7 @@ func (w *Worker) collaborativeRecommendHNSW(rankingIndex *search.HNSW, userId st
 			}
 		}
 		recommend[category] = recommendItems
-		if err := w.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, userId, category),
+		if err := w.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, cache.Key(userId, category),
 			cache.CreateScoredItems(recommendItems, recommendScores)); err != nil {
 			log.Logger().Error("failed to cache collaborative filtering recommendation result", zap.String("user_id", userId), zap.Error(err))
 			return nil, 0, errors.Trace(err)
@@ -1000,12 +1000,12 @@ func (w *Worker) exploreRecommend(exploitRecommend []cache.Scored, excludeSet *s
 		exploreLatestThreshold += threshold
 	}
 	// load popular items
-	popularItems, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.PopularItems, category), 0, w.Config.Recommend.CacheSize)
+	popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.CacheSize)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// load the latest items
-	latestItems, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.LatestItems, category), 0, w.Config.Recommend.CacheSize)
+	latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.CacheSize)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1056,7 +1056,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, userId string, 
 	)
 	// check cache
 	for _, category := range append([]string{""}, categories...) {
-		items, err := w.CacheClient.GetSorted(ctx, cache.Key(cache.OfflineRecommend, userId, category), 0, -1)
+		items, err := w.CacheClient.GetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), 0, -1)
 		if err != nil {
 			log.Logger().Error("failed to load offline recommendation", zap.String("user_id", userId), zap.Error(err))
 			return true
@@ -1119,7 +1119,7 @@ func (w *Worker) loadUserHistoricalItems(database data.Database, userId string) 
 func (w *Worker) refreshCache(ctx context.Context, userId string, recommendTime time.Time) error {
 	// reload cache
 	if w.Config.Recommend.Replacement.EnableReplacement {
-		err := w.CacheClient.SetSorted(ctx, cache.IgnoreItems, nil)
+		err := w.CacheClient.SetSorted(ctx, cache.IgnoreItems, "", nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1134,11 +1134,11 @@ func (w *Worker) refreshCache(ctx context.Context, userId string, recommendTime 
 				items = append(items, cache.Scored{Id: v.ItemId, Score: float64(v.Timestamp.Unix())})
 			}
 		}
-		err = w.CacheClient.AddSorted(ctx, cache.Sorted(cache.Key(cache.IgnoreItems, userId), items))
+		err = w.CacheClient.AddSorted(ctx, cache.IgnoreItems, cache.Sorted(userId, items))
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = w.CacheClient.RemSortedByScore(ctx, cache.Key(cache.IgnoreItems, userId), math.Inf(-1), float64(recommendTime.Unix())-1)
+		err = w.CacheClient.RemSortedByScore(ctx, cache.IgnoreItems, userId, math.Inf(-1), float64(recommendTime.Unix())-1)
 		if err != nil {
 			return errors.Trace(err)
 		}

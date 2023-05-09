@@ -19,6 +19,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"net"
+	"net/http"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-redis/redis/v9"
 	"github.com/go-resty/resty/v2"
@@ -31,15 +41,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/protobuf/proto"
-	"math/rand"
-	"net"
-	"net/http"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -810,7 +811,7 @@ func BenchmarkGetRecommendCache(b *testing.B) {
 			}
 			lo.Reverse(scores)
 			lo.Reverse(expects)
-			err := s.CacheClient.SetSorted(ctx, cache.PopularItems, scores)
+			err := s.CacheClient.SetSorted(ctx, cache.PopularItems, "", scores)
 			require.NoError(b, err)
 			s.Config.Recommend.CacheSize = len(scores)
 
@@ -850,13 +851,13 @@ func BenchmarkRecommendFromOfflineCache(b *testing.B) {
 				if i%2 == 0 {
 					expects[i/2] = scores[i].Id
 				} else {
-					err := s.CacheClient.AddSorted(ctx, cache.Sorted(cache.Key(cache.IgnoreItems, "init_user_1"), []cache.Scored{{scores[i].Id, 0}}))
+					err := s.CacheClient.AddSorted(ctx, cache.IgnoreItems, cache.Sorted("init_user_1", []cache.Scored{{scores[i].Id, 0}}))
 					require.NoError(b, err)
 				}
 			}
 			lo.Reverse(scores)
 			lo.Reverse(expects)
-			err := s.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "init_user_1"), scores)
+			err := s.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "init_user_1", scores)
 			require.NoError(b, err)
 			s.Config.Recommend.CacheSize = len(scores)
 
@@ -908,7 +909,7 @@ func BenchmarkRecommendFromLatest(b *testing.B) {
 			}
 			lo.Reverse(scores)
 			lo.Reverse(expects)
-			err := s.CacheClient.SetSorted(ctx, cache.LatestItems, scores)
+			err := s.CacheClient.SetSorted(ctx, cache.LatestItems, "", scores)
 			require.NoError(b, err)
 			s.Config.Recommend.CacheSize = len(scores)
 
@@ -960,7 +961,7 @@ func BenchmarkRecommendFromItemBased(b *testing.B) {
 
 			// insert user neighbors
 			for i := 0; i < s.Config.Recommend.Online.NumFeedbackFallbackItemBased; i++ {
-				err := s.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, fmt.Sprintf("init_item_%d", i)), scores)
+				err := s.CacheClient.SetSorted(ctx, cache.ItemNeighbors, fmt.Sprintf("init_item_%d", i), scores)
 				require.NoError(b, err)
 			}
 

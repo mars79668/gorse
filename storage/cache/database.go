@@ -131,6 +131,8 @@ const (
 var (
 	ErrObjectNotExist = errors.NotFoundf("object")
 	ErrNoDatabase     = errors.NotAssignedf("database")
+
+	SortedSubTable = []string{ItemNeighbors, UserNeighbors, CollaborativeRecommend, OfflineRecommend, LatestItems, PopularItems, HiddenItemsV2, IgnoreItems, Measurements}
 )
 
 // Scored associate a id with a score.
@@ -290,12 +292,12 @@ type Database interface {
 	AddSet(ctx context.Context, key string, members ...string) error
 	RemSet(ctx context.Context, key string, members ...string) error
 
-	AddSorted(ctx context.Context, sortedSets ...SortedSet) error
-	GetSorted(ctx context.Context, key string, begin, end int) ([]Scored, error)
-	GetSortedByScore(ctx context.Context, key string, begin, end float64) ([]Scored, error)
-	RemSortedByScore(ctx context.Context, key string, begin, end float64) error
-	SetSorted(ctx context.Context, key string, scores []Scored) error
-	RemSorted(ctx context.Context, members ...SetMember) error
+	AddSorted(ctx context.Context, subTable string, sortedSets ...SortedSet) error
+	GetSorted(ctx context.Context, subTable string, key string, begin, end int) ([]Scored, error)
+	GetSortedByScore(ctx context.Context, subTable, key string, begin, end float64) ([]Scored, error)
+	RemSortedByScore(ctx context.Context, subTable, key string, begin, end float64) error
+	SetSorted(ctx context.Context, subTable, key string, scores []Scored) error
+	RemSorted(ctx context.Context, subTable string, members ...SetMember) error
 }
 
 // Open a connection to a database.

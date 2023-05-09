@@ -16,6 +16,9 @@ package storage
 
 import (
 	"database/sql"
+	"net/url"
+	"strings"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	"github.com/samber/lo"
@@ -23,8 +26,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 	"moul.io/zapgorm2"
-	"net/url"
-	"strings"
 )
 
 const (
@@ -102,8 +103,8 @@ func (tp TablePrefix) SetsTable() string {
 	return string(tp) + "sets"
 }
 
-func (tp TablePrefix) SortedSetsTable() string {
-	return string(tp) + "sorted_sets"
+func (tp TablePrefix) SortedSetsTable(subTable string) string {
+	return string(tp) + "sorted_sets_" + subTable
 }
 
 func (tp TablePrefix) UsersTable() string {

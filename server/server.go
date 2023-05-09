@@ -18,6 +18,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/emicklei/go-restful/v3"
 	"github.com/juju/errors"
 	"github.com/samber/lo"
@@ -34,10 +39,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"math"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 // Server manages states of a server node.
@@ -225,7 +226,7 @@ func newPopularItemsCacheForTest(s *RestServer) *PopularItemsCache {
 func (sc *PopularItemsCache) sync() {
 	ctx := context.Background()
 	// load popular items
-	items, err := sc.server.CacheClient.GetSorted(ctx, cache.Key(cache.PopularItems), 0, -1)
+	items, err := sc.server.CacheClient.GetSorted(ctx, cache.PopularItems, "", 0, -1)
 	if err != nil {
 		if !errors.Is(err, errors.NotAssigned) {
 			log.Logger().Error("failed to get popular items", zap.Error(err))
@@ -295,7 +296,7 @@ func (hc *HiddenItemsManager) sync() {
 		return
 	}
 	// load hidden items
-	score, err := hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, math.Inf(-1), float64(ts.Unix()))
+	score, err := hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, "", math.Inf(-1), float64(ts.Unix()))
 	if err != nil {
 		if !errors.Is(err, errors.NotAssigned) {
 			log.Logger().Error("failed to load hidden items", zap.Error(err))
@@ -305,7 +306,7 @@ func (hc *HiddenItemsManager) sync() {
 	hiddenItems := strset.New(cache.RemoveScores(score)...)
 	// load hidden items in categories
 	for _, category := range categories {
-		score, err = hc.server.CacheClient.GetSortedByScore(ctx, cache.Key(cache.HiddenItemsV2, category), math.Inf(-1), float64(ts.Unix()))
+		score, err = hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, category, math.Inf(-1), float64(ts.Unix()))
 		if err != nil {
 			if !errors.Is(err, errors.NotAssigned) {
 				log.Logger().Error("failed to load categorized hidden items", zap.Error(err))
@@ -338,7 +339,7 @@ func (hc *HiddenItemsManager) IsHidden(members []string, category string) ([]boo
 		}
 	}
 	// load delta hidden items
-	score, err := hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, float64(updateTime.Unix()), float64(time.Now().Unix()))
+	score, err := hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, "", float64(updateTime.Unix()), float64(time.Now().Unix()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -346,7 +347,7 @@ func (hc *HiddenItemsManager) IsHidden(members []string, category string) ([]boo
 	// load delta hidden items in category
 	deltaHiddenItemsInCategory := strset.New()
 	if category != "" {
-		score, err = hc.server.CacheClient.GetSortedByScore(ctx, cache.Key(cache.HiddenItemsV2, category), float64(updateTime.Unix()), float64(time.Now().Unix()))
+		score, err = hc.server.CacheClient.GetSortedByScore(ctx, cache.HiddenItemsV2, category, float64(updateTime.Unix()), float64(time.Now().Unix()))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -377,8 +378,10 @@ func (hc *HiddenItemsManager) IsHiddenInCache(member string, category string) bo
 
 type CacheModification struct {
 	client             cache.Database
-	deletion           []cache.SetMember
-	insertion          []cache.SortedSet
+	hideDeletion       []cache.SetMember
+	lastestInsertion   []cache.SortedSet
+	hideInsertion      []cache.SortedSet
+	popularIsertion    []cache.SortedSet
 	hiddenItemsManager *HiddenItemsManager
 }
 
@@ -390,21 +393,21 @@ func NewCacheModification(client cache.Database, hiddenItemsManager *HiddenItems
 }
 
 func (cm *CacheModification) deleteItemCategory(itemId, category string) *CacheModification {
-	cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.HiddenItemsV2, category), []cache.Scored{{itemId, float64(time.Now().Unix())}}))
+	cm.hideInsertion = append(cm.hideInsertion, cache.Sorted(category, []cache.Scored{{itemId, float64(time.Now().Unix())}}))
 	return cm
 }
 
 func (cm *CacheModification) addItemCategory(itemId, category string, latest, popular float64) *CacheModification {
 	// 1. insert item to latest and popular
 	if latest > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.LatestItems, category), []cache.Scored{{itemId, latest}}))
+		cm.lastestInsertion = append(cm.lastestInsertion, cache.Sorted(category, []cache.Scored{{itemId, latest}}))
 	}
 	if popular > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.PopularItems, category), []cache.Scored{{itemId, popular}}))
+		cm.popularIsertion = append(cm.popularIsertion, cache.Sorted(category, []cache.Scored{{itemId, popular}}))
 	}
 	// 2. remove delete mark
 	if cm.hiddenItemsManager.IsHiddenInCache(itemId, category) {
-		cm.deletion = append(cm.deletion, cache.Member(cache.Key(cache.HiddenItemsV2, category), itemId))
+		cm.hideDeletion = append(cm.hideDeletion, cache.Member(cache.Key(cache.HiddenItemsV2, category), itemId))
 	}
 	return cm
 }
@@ -414,41 +417,41 @@ func (cm *CacheModification) modifyItem(itemId string, prevCategories, categorie
 	categoriesSet := strset.New(categories...)
 	// 2. insert item to category latest and popular
 	if latest > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.LatestItems), []cache.Scored{{itemId, latest}}))
+		cm.lastestInsertion = append(cm.lastestInsertion, cache.Sorted("", []cache.Scored{{itemId, latest}}))
 	}
 	if popular > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.PopularItems), []cache.Scored{{itemId, popular}}))
+		cm.popularIsertion = append(cm.popularIsertion, cache.Sorted("", []cache.Scored{{itemId, popular}}))
 	}
 	for _, category := range categories {
 		// 2. insert item to category latest and popular
 		if latest > 0 {
-			cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.LatestItems, category), []cache.Scored{{itemId, latest}}))
+			cm.lastestInsertion = append(cm.lastestInsertion, cache.Sorted(category, []cache.Scored{{itemId, latest}}))
 		}
 		if popular > 0 {
-			cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.PopularItems, category), []cache.Scored{{itemId, popular}}))
+			cm.popularIsertion = append(cm.popularIsertion, cache.Sorted(category, []cache.Scored{{itemId, popular}}))
 		}
 		// 3. remove delete mark
 		if !prevCategoriesSet.Has(category) && cm.hiddenItemsManager.IsHiddenInCache(itemId, category) {
-			cm.deletion = append(cm.deletion, cache.Member(cache.Key(cache.HiddenItemsV2, category), itemId))
+			cm.hideDeletion = append(cm.hideDeletion, cache.Member(category, itemId))
 		}
 	}
 	// 4. insert category delete mark
 	for _, category := range prevCategories {
 		if !categoriesSet.Has(category) {
-			cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.HiddenItemsV2, category), []cache.Scored{{itemId, float64(time.Now().Unix())}}))
+			cm.hideInsertion = append(cm.hideInsertion, cache.Sorted(category, []cache.Scored{{itemId, float64(time.Now().Unix())}}))
 		}
 	}
 	return cm
 }
 
 func (cm *CacheModification) HideItem(itemId string) *CacheModification {
-	cm.insertion = append(cm.insertion, cache.Sorted(cache.HiddenItemsV2, []cache.Scored{{itemId, float64(time.Now().Unix())}}))
+	cm.hideInsertion = append(cm.hideInsertion, cache.Sorted("", []cache.Scored{{itemId, float64(time.Now().Unix())}}))
 	return cm
 }
 
 func (cm *CacheModification) unHideItem(itemId string) *CacheModification {
 	if cm.hiddenItemsManager.IsHiddenInCache(itemId, "") {
-		cm.deletion = append(cm.deletion, cache.Member(cache.HiddenItemsV2, itemId))
+		cm.hideDeletion = append(cm.hideDeletion, cache.Member(cache.HiddenItemsV2, itemId))
 	}
 	return cm
 }
@@ -456,35 +459,45 @@ func (cm *CacheModification) unHideItem(itemId string) *CacheModification {
 func (cm *CacheModification) addItem(itemId string, categories []string, latest, popular float64) {
 	// 1. insert item to global latest and popular
 	if latest > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.LatestItems, []cache.Scored{{itemId, latest}}))
+		cm.lastestInsertion = append(cm.lastestInsertion, cache.Sorted("", []cache.Scored{{itemId, latest}}))
 	}
 	if popular > 0 {
-		cm.insertion = append(cm.insertion, cache.Sorted(cache.PopularItems, []cache.Scored{{itemId, popular}}))
+		cm.popularIsertion = append(cm.popularIsertion, cache.Sorted("", []cache.Scored{{itemId, popular}}))
 	}
 	for _, category := range categories {
 		// 2. insert item to category latest and popular
 		if latest > 0 {
-			cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.LatestItems, category), []cache.Scored{{itemId, latest}}))
+			cm.lastestInsertion = append(cm.lastestInsertion, cache.Sorted(category, []cache.Scored{{itemId, latest}}))
 		}
 		if popular > 0 {
-			cm.insertion = append(cm.insertion, cache.Sorted(cache.Key(cache.PopularItems, category), []cache.Scored{{itemId, popular}}))
+			cm.popularIsertion = append(cm.popularIsertion, cache.Sorted(category, []cache.Scored{{itemId, popular}}))
 		}
 	}
 	// 3. remove delete mark
 	if cm.hiddenItemsManager.IsHiddenInCache(itemId, "") {
-		cm.deletion = append(cm.deletion, cache.Member(cache.HiddenItemsV2, itemId))
+		cm.hideDeletion = append(cm.hideDeletion, cache.Member("", itemId))
 	}
 }
 
 func (cm *CacheModification) Exec() error {
 	ctx := context.Background()
-	if len(cm.deletion) > 0 {
-		if err := cm.client.RemSorted(ctx, cm.deletion...); err != nil {
+	if len(cm.hideDeletion) > 0 {
+		if err := cm.client.RemSorted(ctx, cache.HiddenItemsV2, cm.hideDeletion...); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if len(cm.insertion) > 0 {
-		if err := cm.client.AddSorted(ctx, cm.insertion...); err != nil {
+	if len(cm.lastestInsertion) > 0 {
+		if err := cm.client.AddSorted(ctx, cache.LatestItems, cm.lastestInsertion...); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if len(cm.popularIsertion) > 0 {
+		if err := cm.client.AddSorted(ctx, cache.PopularItems, cm.popularIsertion...); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if len(cm.hideInsertion) > 0 {
+		if err := cm.client.AddSorted(ctx, cache.HiddenItemsV2, cm.hideInsertion...); err != nil {
 			return errors.Trace(err)
 		}
 	}

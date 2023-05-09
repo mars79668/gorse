@@ -16,6 +16,7 @@ package cache
 
 import (
 	"context"
+
 	"github.com/juju/errors"
 	"github.com/zhenghaoz/gorse/storage"
 	"go.mongodb.org/mongo-driver/bson"
@@ -33,19 +34,25 @@ func (m MongoDB) Init() error {
 	ctx := context.Background()
 	d := m.client.Database(m.dbName)
 	// list collections
-	var hasValues, hasSets, hasSortedSets bool
+	var hasValues, hasSets bool
 	collections, err := d.ListCollectionNames(ctx, bson.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	createStat := make(map[string]bool)
 	for _, collectionName := range collections {
 		switch collectionName {
 		case m.ValuesTable():
 			hasValues = true
 		case m.SetsTable():
 			hasSets = true
-		case m.SortedSetsTable():
-			hasSortedSets = true
+		default:
+			for _, st := range SortedSubTable {
+				if collectionName == st {
+					createStat[collectionName] = true
+				}
+			}
 		}
 	}
 	// create collections
@@ -59,9 +66,11 @@ func (m MongoDB) Init() error {
 			return errors.Trace(err)
 		}
 	}
-	if !hasSortedSets {
-		if err = d.CreateCollection(ctx, m.SortedSetsTable()); err != nil {
-			return errors.Trace(err)
+	for _, st := range SortedSubTable {
+		if !createStat[st] {
+			if err = d.CreateCollection(ctx, m.SortedSetsTable(st)); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	// create index
@@ -75,24 +84,27 @@ func (m MongoDB) Init() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = d.Collection(m.SortedSetsTable()).Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{
-			{"name", 1},
-			{"member", 1},
-		},
-		Options: options.Index().SetUnique(true),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = d.Collection(m.SortedSetsTable()).Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{
-			{"name", 1},
-			{"score", 1},
-		},
-	})
-	if err != nil {
-		return errors.Trace(err)
+
+	for _, st := range SortedSubTable {
+		_, err = d.Collection(m.SortedSetsTable(st)).Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{
+				{"name", 1},
+				{"member", 1},
+			},
+			Options: options.Index().SetUnique(true),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = d.Collection(m.SortedSetsTable(st)).Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{
+				{"name", 1},
+				{"score", 1},
+			},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -147,38 +159,49 @@ func (m MongoDB) Scan(work func(string) error) error {
 		}
 	}
 
-	// scan sorted sets
-	sortedSetCollection := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
-	sortedSetIterator, err := sortedSetCollection.Find(ctx, bson.M{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer sortedSetIterator.Close(ctx)
-	prevKey = ""
-	for sortedSetIterator.Next(ctx) {
-		var row bson.Raw
-		if err = sortedSetIterator.Decode(&row); err != nil {
+	for _, st := range SortedSubTable {
+		// scan sorted sets
+		sortedSetCollection := m.client.Database(m.dbName).Collection(m.SortedSetsTable(st))
+		sortedSetIterator, err := sortedSetCollection.Find(ctx, bson.M{})
+		if err != nil {
 			return errors.Trace(err)
 		}
-		key := row.Lookup("name").StringValue()
-		if key != prevKey {
-			if err = work(key); err != nil {
+		defer sortedSetIterator.Close(ctx)
+		prevKey = ""
+		for sortedSetIterator.Next(ctx) {
+			var row bson.Raw
+			if err = sortedSetIterator.Decode(&row); err != nil {
 				return errors.Trace(err)
 			}
-			prevKey = key
+			key := row.Lookup("name").StringValue()
+			if key != prevKey {
+				if err = work(Key(st, key)); err != nil {
+					return errors.Trace(err)
+				}
+				prevKey = key
+			}
 		}
 	}
 	return nil
 }
 
 func (m MongoDB) Purge() error {
-	tables := []string{m.ValuesTable(), m.SortedSetsTable(), m.SetsTable()}
+	tables := []string{m.ValuesTable(), m.SetsTable()}
 	for _, tableName := range tables {
 		c := m.client.Database(m.dbName).Collection(tableName)
 		_, err := c.DeleteMany(context.Background(), bson.D{})
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+
+	for _, st := range SortedSubTable {
+		c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(st))
+		_, err := c.DeleteMany(context.Background(), bson.D{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 	}
 	return nil
 }
@@ -281,8 +304,8 @@ func (m MongoDB) RemSet(ctx context.Context, name string, members ...string) err
 	return errors.Trace(err)
 }
 
-func (m MongoDB) GetSorted(ctx context.Context, name string, begin, end int) ([]Scored, error) {
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+func (m MongoDB) GetSorted(ctx context.Context, subTable, name string, begin, end int) ([]Scored, error) {
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	opt := options.Find()
 	opt.SetSort(bson.M{"score": -1})
 	if end >= 0 {
@@ -309,8 +332,8 @@ func (m MongoDB) GetSorted(ctx context.Context, name string, begin, end int) ([]
 	return scores, nil
 }
 
-func (m MongoDB) GetSortedByScore(ctx context.Context, name string, begin, end float64) ([]Scored, error) {
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+func (m MongoDB) GetSortedByScore(ctx context.Context, subTable, name string, begin, end float64) ([]Scored, error) {
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	opt := options.Find()
 	opt.SetSort(bson.M{"score": 1})
 	r, err := c.Find(ctx, bson.D{
@@ -335,8 +358,8 @@ func (m MongoDB) GetSortedByScore(ctx context.Context, name string, begin, end f
 	return scores, nil
 }
 
-func (m MongoDB) RemSortedByScore(ctx context.Context, name string, begin, end float64) error {
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+func (m MongoDB) RemSortedByScore(ctx context.Context, subTable, name string, begin, end float64) error {
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	_, err := c.DeleteMany(ctx, bson.D{
 		{"name", name},
 		{"score", bson.M{"$gte": begin}},
@@ -345,8 +368,8 @@ func (m MongoDB) RemSortedByScore(ctx context.Context, name string, begin, end f
 	return errors.Trace(err)
 }
 
-func (m MongoDB) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+func (m MongoDB) AddSorted(ctx context.Context, subTable string, sortedSets ...SortedSet) error {
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	var models []mongo.WriteModel
 	for _, sorted := range sortedSets {
 		for _, score := range sorted.scores {
@@ -363,8 +386,8 @@ func (m MongoDB) AddSorted(ctx context.Context, sortedSets ...SortedSet) error {
 	return errors.Trace(err)
 }
 
-func (m MongoDB) SetSorted(ctx context.Context, name string, scores []Scored) error {
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+func (m MongoDB) SetSorted(ctx context.Context, subTable, name string, scores []Scored) error {
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	var models []mongo.WriteModel
 	models = append(models, mongo.NewDeleteManyModel().SetFilter(bson.M{"name": bson.M{"$eq": name}}))
 	for _, score := range scores {
@@ -377,11 +400,11 @@ func (m MongoDB) SetSorted(ctx context.Context, name string, scores []Scored) er
 	return errors.Trace(err)
 }
 
-func (m MongoDB) RemSorted(ctx context.Context, members ...SetMember) error {
+func (m MongoDB) RemSorted(ctx context.Context, subTable string, members ...SetMember) error {
 	if len(members) == 0 {
 		return nil
 	}
-	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable())
+	c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(subTable))
 	var models []mongo.WriteModel
 	for _, member := range members {
 		models = append(models, mongo.NewDeleteOneModel().SetFilter(bson.M{"name": member.name, "member": member.member}))

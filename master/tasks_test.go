@@ -94,13 +94,13 @@ func TestMaster_FindItemNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindItemNeighbors].Status)
 	// similar items in category (common users)
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9", "*"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key("9", "*"), 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "1"}, cache.RemoveScores(similar))
 
@@ -110,13 +110,13 @@ func TestMaster_FindItemNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindItemNeighbors].Status)
 	// similar items in category (common labels)
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8", "*"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key("8", "*"), 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "6"}, cache.RemoveScores(similar))
 
@@ -128,10 +128,10 @@ func TestMaster_FindItemNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
@@ -207,13 +207,13 @@ func TestMaster_FindItemNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindItemNeighbors].Status)
 	// similar items in category (common users)
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9", "*"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key("9", "*"), 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "1"}, cache.RemoveScores(similar))
 
@@ -223,13 +223,13 @@ func TestMaster_FindItemNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindItemNeighbors].Status)
 	// similar items in category (common labels)
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8", "*"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key("8", "*"), 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "6"}, cache.RemoveScores(similar))
 
@@ -241,10 +241,10 @@ func TestMaster_FindItemNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "9"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindItemNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindItemNeighbors].Done)
@@ -283,7 +283,7 @@ func TestMaster_FindItemNeighborsIVF_ZeroIDF(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "0"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "0", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"1"}, cache.RemoveScores(similar))
 
@@ -291,7 +291,7 @@ func TestMaster_FindItemNeighborsIVF_ZeroIDF(t *testing.T) {
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "0"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "0", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"1"}, cache.RemoveScores(similar))
 }
@@ -346,7 +346,7 @@ func TestMaster_FindUserNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "9"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -358,7 +358,7 @@ func TestMaster_FindUserNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -372,10 +372,10 @@ func TestMaster_FindUserNeighborsBruteForce(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "9"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -435,7 +435,7 @@ func TestMaster_FindUserNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "9"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -447,7 +447,7 @@ func TestMaster_FindUserNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -461,10 +461,10 @@ func TestMaster_FindUserNeighborsIVF(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "8"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "8", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"0", "2", "4"}, cache.RemoveScores(similar))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "9"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "9", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"7", "5", "3"}, cache.RemoveScores(similar))
 	assert.Equal(t, m.estimateFindUserNeighborsComplexity(dataset), m.taskMonitor.Tasks[TaskFindUserNeighbors].Done)
@@ -503,7 +503,7 @@ func TestMaster_FindUserNeighborsIVF_ZeroIDF(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeRelated
 	neighborTask := NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "0"), 0, 100)
+	similar, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "0", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"1"}, cache.RemoveScores(similar))
 
@@ -511,7 +511,7 @@ func TestMaster_FindUserNeighborsIVF_ZeroIDF(t *testing.T) {
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
 	assert.NoError(t, neighborTask.run(nil))
-	similar, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "0"), 0, 100)
+	similar, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "0", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"1"}, cache.RemoveScores(similar))
 }
@@ -613,14 +613,14 @@ func TestMaster_LoadDataFromDatabase(t *testing.T) {
 	assert.Equal(t, 45, m.clickTrainSet.NegativeCount+m.clickTestSet.NegativeCount)
 
 	// check latest items
-	latest, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.LatestItems, ""), 0, 100)
+	latest, err := m.CacheClient.GetSorted(ctx, cache.LatestItems, "", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{
 		{items[8].ItemId, float64(items[8].Timestamp.Unix())},
 		{items[7].ItemId, float64(items[7].Timestamp.Unix())},
 		{items[6].ItemId, float64(items[6].Timestamp.Unix())},
 	}, latest)
-	latest, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.LatestItems, "2"), 0, 100)
+	latest, err = m.CacheClient.GetSorted(ctx, cache.LatestItems, "2", 0, 100)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{
 		{items[8].ItemId, float64(items[8].Timestamp.Unix())},
@@ -629,14 +629,14 @@ func TestMaster_LoadDataFromDatabase(t *testing.T) {
 	}, latest)
 
 	// check popular items
-	popular, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.PopularItems, ""), 0, 2)
+	popular, err := m.CacheClient.GetSorted(ctx, cache.PopularItems, "", 0, 2)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{
 		{Id: items[8].ItemId, Score: 9},
 		{Id: items[7].ItemId, Score: 8},
 		{Id: items[6].ItemId, Score: 7},
 	}, popular)
-	popular, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.PopularItems, "2"), 0, 2)
+	popular, err = m.CacheClient.GetSorted(ctx, cache.PopularItems, "2", 0, 2)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{
 		{Id: items[8].ItemId, Score: 9},
@@ -659,7 +659,7 @@ func TestCheckItemNeighborCacheTimeout(t *testing.T) {
 
 	// empty cache
 	assert.True(t, m.checkItemNeighborCacheTimeout("1", nil))
-	err := m.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "1"), []cache.Scored{
+	err := m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "1", []cache.Scored{
 		{Id: "2", Score: 1},
 		{Id: "3", Score: 2},
 		{Id: "4", Score: 3},
@@ -697,7 +697,7 @@ func TestCheckUserNeighborCacheTimeout(t *testing.T) {
 
 	// empty cache
 	assert.True(t, m.checkUserNeighborCacheTimeout("1"))
-	err := m.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, "1"), []cache.Scored{
+	err := m.CacheClient.SetSorted(ctx, cache.UserNeighbors, "1", []cache.Scored{
 		{Id: "1", Score: 1},
 		{Id: "2", Score: 2},
 		{Id: "3", Score: 3},
@@ -749,11 +749,11 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 		cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "1"), timestamp),
 	)
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, "1"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.UserNeighbors, "1", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "1"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, "1", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "1"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "1", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
 	err = m.CacheClient.Set(ctx,
 		cache.String(cache.Key(cache.ItemNeighborsDigest, "10"), "digest"),
@@ -761,7 +761,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 		cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "10"), timestamp),
 	)
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "10"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "10", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
 
 	err = m.CacheClient.Set(ctx,
@@ -772,11 +772,11 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 		cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "2"), timestamp),
 	)
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.UserNeighbors, "2"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.UserNeighbors, "2", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "2"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.CollaborativeRecommend, "2", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.OfflineRecommend, "2"), []cache.Scored{{Id: "1", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "2", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
 	err = m.CacheClient.Set(ctx,
 		cache.String(cache.Key(cache.ItemNeighborsDigest, "20"), "digest"),
@@ -784,7 +784,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 		cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "20"), timestamp),
 	)
 	assert.NoError(t, err)
-	err = m.CacheClient.SetSorted(ctx, cache.Key(cache.ItemNeighbors, "20"), []cache.Scored{{Id: "2", Score: 1}})
+	err = m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "20", []cache.Scored{{Id: "2", Score: 1}})
 	assert.NoError(t, err)
 
 	// remove cache
@@ -810,13 +810,13 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "1")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
-	sorted, err := m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "1"), 0, -1)
+	sorted, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "1", 0, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "1"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.CollaborativeRecommend, "1", 0, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.OfflineRecommend, "1"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.OfflineRecommend, "1", 0, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
 
@@ -829,7 +829,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "10")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "10"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "10", 0, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
 
@@ -843,13 +843,13 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.True(t, errors.Is(err, errors.NotFound))
 	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "2")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.UserNeighbors, "2"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "2", 0, -1)
 	assert.NoError(t, err)
 	assert.Empty(t, sorted)
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.CollaborativeRecommend, "2"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.CollaborativeRecommend, "2", 0, -1)
 	assert.NoError(t, err)
 	assert.Empty(t, sorted)
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.OfflineRecommend, "2"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.OfflineRecommend, "2", 0, -1)
 	assert.NoError(t, err)
 	assert.Empty(t, sorted)
 
@@ -859,7 +859,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.True(t, errors.Is(err, errors.NotFound))
 	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "20")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	sorted, err = m.CacheClient.GetSorted(ctx, cache.Key(cache.ItemNeighbors, "20"), 0, -1)
+	sorted, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "20", 0, -1)
 	assert.NoError(t, err)
 	assert.Empty(t, sorted)
 }
