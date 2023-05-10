@@ -1435,16 +1435,16 @@ func (m *Master) purge(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	checkedList := strings.Split(request.Form.Get("check_list"), ",")
-	if !checkList.IsEqual(strset.New(checkedList...)) {
-		writeError(response, http.StatusUnauthorized, "please confirm by checking all")
-		return
-	}
+	//if !checkList.IsEqual(strset.New(checkedList...)) {
+	//	writeError(response, http.StatusUnauthorized, "please confirm by checking all")
+	//	return
+	//}
 	// purge data
-	if err := m.DataClient.Purge(); err != nil {
+	if err := m.DataClient.Purge(checkedList); err != nil {
 		writeError(response, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if err := m.CacheClient.Purge(); err != nil {
+	if err := m.CacheClient.Purge(checkedList); err != nil {
 		writeError(response, http.StatusInternalServerError, err.Error())
 		return
 	}

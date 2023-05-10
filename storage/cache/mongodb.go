@@ -185,23 +185,30 @@ func (m MongoDB) Scan(work func(string) error) error {
 	return nil
 }
 
-func (m MongoDB) Purge() error {
-	tables := []string{m.ValuesTable(), m.SetsTable()}
+func (m MongoDB) Purge(checkedList []string) error {
+	tables := []string{} //m.ValuesTable(), m.SetsTable()
+
+	for _, ch := range checkedList {
+		if ch == "delete_cache" || ch == "delete_cache_values" {
+			tables = append(tables, m.ValuesTable())
+		}
+		if ch == "delete_cache" || ch == "delete_cache_sets" {
+			tables = append(tables, m.SetsTable())
+		}
+
+		for _, st := range SortedSubTable {
+			if ch == "delete_cache" || ch == "delete_cache_"+st {
+				tables = append(tables, m.SortedSetsTable(st))
+			}
+		}
+	}
+
 	for _, tableName := range tables {
 		c := m.client.Database(m.dbName).Collection(tableName)
 		_, err := c.DeleteMany(context.Background(), bson.D{})
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-
-	for _, st := range SortedSubTable {
-		c := m.client.Database(m.dbName).Collection(m.SortedSetsTable(st))
-		_, err := c.DeleteMany(context.Background(), bson.D{})
-		if err != nil {
-			return errors.Trace(err)
-		}
-
 	}
 	return nil
 }

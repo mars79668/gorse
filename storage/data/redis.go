@@ -17,13 +17,14 @@ package data
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/go-redis/redis/v9"
 	"github.com/juju/errors"
 	"github.com/scylladb/go-set/strset"
 	"github.com/thoas/go-funk"
-	"strconv"
-	"strings"
-	"time"
 )
 
 const (
@@ -56,7 +57,7 @@ func (r *Redis) Close() error {
 	return r.client.Close()
 }
 
-func (r *Redis) Purge() error {
+func (r *Redis) Purge(checkedList []string) error {
 	return r.client.FlushDB(context.Background()).Err()
 }
 

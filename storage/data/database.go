@@ -120,7 +120,7 @@ type Database interface {
 	Ping() error
 	Close() error
 	Optimize() error
-	Purge() error
+	Purge(checkedList []string) error
 	BatchInsertItems(ctx context.Context, items []Item) error
 	BatchGetItems(ctx context.Context, itemIds []string) ([]Item, error)
 	DeleteItem(ctx context.Context, itemId string) error

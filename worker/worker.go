@@ -620,7 +620,7 @@ func (w *Worker) Recommend(users []data.User) {
 				scores := make(map[string]float64)
 				for _, itemId := range positiveItems {
 					// load similar items
-					similarItems, err := w.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, w.Config.Recommend.CacheSize)
+					similarItems, err := w.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, w.Config.Recommend.ItemCacheSize)
 					if err != nil {
 						log.Logger().Error("failed to load similar items", zap.Error(err))
 						return errors.Trace(err)
@@ -642,7 +642,7 @@ func (w *Worker) Recommend(users []data.User) {
 					itemNeighborDigests.Add(digest)
 				}
 				// collect top k
-				filter := heap.NewTopKFilter[string, float64](w.Config.Recommend.CacheSize)
+				filter := heap.NewTopKFilter[string, float64](w.Config.Recommend.ItemCacheSize)
 				for id, score := range scores {
 					filter.Push(id, score)
 				}
@@ -658,7 +658,7 @@ func (w *Worker) Recommend(users []data.User) {
 			localStartTime := time.Now()
 			scores := make(map[string]float64)
 			// load similar users
-			similarUsers, err := w.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, w.Config.Recommend.CacheSize)
+			similarUsers, err := w.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, w.Config.Recommend.UserCacheSize)
 			if err != nil {
 				log.Logger().Error("failed to load similar users", zap.Error(err))
 				return errors.Trace(err)
@@ -690,9 +690,9 @@ func (w *Worker) Recommend(users []data.User) {
 			}
 			// collect top k
 			filters := make(map[string]*heap.TopKFilter[string, float64])
-			filters[""] = heap.NewTopKFilter[string, float64](w.Config.Recommend.CacheSize)
+			filters[""] = heap.NewTopKFilter[string, float64](w.Config.Recommend.UserCacheSize)
 			for _, category := range itemCategories {
-				filters[category] = heap.NewTopKFilter[string, float64](w.Config.Recommend.CacheSize)
+				filters[category] = heap.NewTopKFilter[string, float64](w.Config.Recommend.UserCacheSize)
 			}
 			for id, score := range scores {
 				filters[""].Push(id, score)
@@ -843,9 +843,9 @@ func (w *Worker) collaborativeRecommendBruteForce(userId string, itemCategories 
 	itemIds := w.RankingModel.GetItemIndex().GetNames()
 	localStartTime := time.Now()
 	recItemsFilters := make(map[string]*heap.TopKFilter[string, float64])
-	recItemsFilters[""] = heap.NewTopKFilter[string, float64](w.Config.Recommend.CacheSize)
+	recItemsFilters[""] = heap.NewTopKFilter[string, float64](w.Config.Recommend.ItemCacheSize)
 	for _, category := range itemCategories {
-		recItemsFilters[category] = heap.NewTopKFilter[string, float64](w.Config.Recommend.CacheSize)
+		recItemsFilters[category] = heap.NewTopKFilter[string, float64](w.Config.Recommend.ItemCacheSize)
 	}
 	for itemIndex, itemId := range itemIds {
 		if !excludeSet.Has(itemId) && itemCache.IsAvailable(itemId) && w.RankingModel.IsItemPredictable(int32(itemIndex)) {
@@ -874,7 +874,7 @@ func (w *Worker) collaborativeRecommendHNSW(rankingIndex *search.HNSW, userId st
 	userIndex := w.RankingModel.GetUserIndex().ToNumber(userId)
 	localStartTime := time.Now()
 	values, scores := rankingIndex.MultiSearch(search.NewDenseVector(w.RankingModel.GetUserFactor(userIndex), nil, false),
-		itemCategories, w.Config.Recommend.CacheSize+excludeSet.Size(), false)
+		itemCategories, w.Config.Recommend.ItemCacheSize+excludeSet.Size(), false)
 	// save result
 	recommend := make(map[string][]string)
 	for category, catValues := range values {

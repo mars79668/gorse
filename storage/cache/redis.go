@@ -236,7 +236,7 @@ func (r *Redis) scan(ctx context.Context, client redis.UniversalClient, work fun
 	}
 }
 
-func (r *Redis) Purge() error {
+func (r *Redis) Purge(checkedList []string) error {
 	ctx := context.Background()
 	if clusterClient, isCluster := r.client.(*redis.ClusterClient); isCluster {
 		return clusterClient.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {

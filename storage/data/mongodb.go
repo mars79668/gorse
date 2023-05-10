@@ -18,13 +18,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/scylladb/go-set/strset"
 	"github.com/zhenghaoz/gorse/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"time"
 )
 
 func feedbackKeyFromString(s string) (*FeedbackKey, error) {
@@ -142,8 +143,19 @@ func (db *MongoDB) Close() error {
 	return db.client.Disconnect(context.Background())
 }
 
-func (db *MongoDB) Purge() error {
-	tables := []string{db.ItemsTable(), db.FeedbackTable(), db.UsersTable()}
+func (db *MongoDB) Purge(checkedList []string) error {
+	tables := []string{} //db.ItemsTable(), db.FeedbackTable(), db.UsersTable()
+	for _, ch := range checkedList {
+		if ch == "delete_users" {
+			tables = append(tables, db.UsersTable())
+		}
+		if ch == "delete_items" {
+			tables = append(tables, db.ItemsTable())
+		}
+		if ch == "delete_feedback" {
+			tables = append(tables, db.FeedbackTable())
+		}
+	}
 	for _, tableName := range tables {
 		c := db.client.Database(db.dbName).Collection(tableName)
 		_, err := c.DeleteMany(context.Background(), bson.D{})

@@ -881,7 +881,7 @@ func (s *RestServer) RecommendUserBased(ctx *recommendContext) error {
 		start := time.Now()
 		candidates := make(map[string]float64)
 		// load similar users
-		similarUsers, err := s.CacheClient.GetSorted(ctx.context, cache.UserNeighbors, ctx.userId, 0, s.Config.Recommend.CacheSize)
+		similarUsers, err := s.CacheClient.GetSorted(ctx.context, cache.UserNeighbors, ctx.userId, 0, s.Config.Recommend.UserCacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -943,7 +943,7 @@ func (s *RestServer) RecommendItemBased(ctx *recommendContext) error {
 		candidates := make(map[string]float64)
 		for _, feedback := range userFeedback {
 			// load similar items
-			similarItems, err := s.CacheClient.GetSorted(ctx.context, cache.ItemNeighbors, cache.Key(feedback.ItemId, ctx.category), 0, s.Config.Recommend.CacheSize)
+			similarItems, err := s.CacheClient.GetSorted(ctx.context, cache.ItemNeighbors, cache.Key(feedback.ItemId, ctx.category), 0, s.Config.Recommend.ItemCacheSize)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1149,7 +1149,7 @@ func (s *RestServer) sessionRecommend(request *restful.Request, response *restfu
 	usedFeedbackCount := 0
 	for _, feedback := range userFeedback {
 		// load similar items
-		similarItems, err := s.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(feedback.ItemId, category), 0, s.Config.Recommend.CacheSize)
+		similarItems, err := s.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(feedback.ItemId, category), 0, s.Config.Recommend.ItemCacheSize)
 		if err != nil {
 			BadRequest(response, err)
 			return

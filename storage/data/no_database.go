@@ -41,7 +41,7 @@ func (NoDatabase) Close() error {
 	return ErrNoDatabase
 }
 
-func (NoDatabase) Purge() error {
+func (NoDatabase) Purge(_ []string) error {
 	return ErrNoDatabase
 }
 

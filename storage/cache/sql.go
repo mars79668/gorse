@@ -230,17 +230,26 @@ func (db *SQLDatabase) Scan(work func(string) error) error {
 	return nil
 }
 
-func (db *SQLDatabase) Purge() error {
-	tables := []string{db.ValuesTable(), db.SetsTable()}
-	for _, tableName := range tables {
-		err := db.gormDB.Exec(fmt.Sprintf("DELETE FROM %s", tableName)).Error
-		if err != nil {
-			return errors.Trace(err)
+func (db *SQLDatabase) Purge(checkedList []string) error {
+	tables := []string{} //db.ValuesTable(), db.SetsTable()
+
+	for _, ch := range checkedList {
+		if ch == "delete_cache" || ch == "delete_cache_values" {
+			tables = append(tables, db.ValuesTable())
+		}
+		if ch == "delete_cache" || ch == "delete_cache_sets" {
+			tables = append(tables, db.SetsTable())
+		}
+
+		for _, st := range SortedSubTable {
+			if ch == "delete_cache" || ch == "delete_cache_"+st {
+				tables = append(tables, db.SortedSetsTable(st))
+			}
 		}
 	}
 
-	for _, st := range SortedSubTable {
-		err := db.gormDB.Exec(fmt.Sprintf("DELETE FROM %s", db.SortedSetsTable(st))).Error
+	for _, tableName := range tables {
+		err := db.gormDB.Exec(fmt.Sprintf("DELETE FROM %s", tableName)).Error
 		if err != nil {
 			return errors.Trace(err)
 		}

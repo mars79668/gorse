@@ -19,6 +19,8 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"time"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	_ "github.com/lib/pq"
@@ -32,7 +34,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	_ "modernc.org/sqlite"
-	"time"
 )
 
 const bufSize = 1
@@ -298,8 +299,19 @@ func (d *SQLDatabase) Close() error {
 	return d.client.Close()
 }
 
-func (d *SQLDatabase) Purge() error {
-	tables := []string{d.ItemsTable(), d.FeedbackTable(), d.UsersTable()}
+func (d *SQLDatabase) Purge(checkedList []string) error {
+	tables := []string{} //d.ItemsTable(), d.FeedbackTable(), d.UsersTable()
+	for _, ch := range checkedList {
+		if ch == "delete_users" {
+			tables = append(tables, d.UsersTable())
+		}
+		if ch == "delete_items" {
+			tables = append(tables, d.ItemsTable())
+		}
+		if ch == "delete_feedback" {
+			tables = append(tables, d.FeedbackTable())
+		}
+	}
 	if d.driver == ClickHouse {
 		for _, tableName := range tables {
 			err := d.gormDB.Exec(fmt.Sprintf("alter table %s delete where 1=1", tableName)).Error

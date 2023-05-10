@@ -285,7 +285,7 @@ type Database interface {
 	Ping() error
 	Init() error
 	Scan(work func(string) error) error
-	Purge() error
+	Purge(checkedList []string) error
 
 	Set(ctx context.Context, values ...Value) error
 	Get(ctx context.Context, name string) *ReturnValue

@@ -261,7 +261,7 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 	startTaskTime := time.Now()
 	t.taskMonitor.Start(TaskFindItemNeighbors, t.estimateFindItemNeighborsComplexity(dataset))
 	log.Logger().Info("start searching neighbors of items",
-		zap.Int("n_cache", t.Config.Recommend.CacheSize))
+		zap.Int("n_cache", t.Config.Recommend.ItemCacheSize))
 	// create progress tracker
 	completed := make(chan struct{}, 1000)
 	go func() {
@@ -389,9 +389,9 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 		updateItemCount.Add(1)
 		startTime := time.Now()
 		nearItemsFilters := make(map[string]*heap.TopKFilter[int32, float32])
-		nearItemsFilters[""] = heap.NewTopKFilter[int32, float32](m.Config.Recommend.CacheSize)
+		nearItemsFilters[""] = heap.NewTopKFilter[int32, float32](m.Config.Recommend.ItemCacheSize)
 		for _, category := range dataset.CategorySet.List() {
-			nearItemsFilters[category] = heap.NewTopKFilter[int32, float32](m.Config.Recommend.CacheSize)
+			nearItemsFilters[category] = heap.NewTopKFilter[int32, float32](m.Config.Recommend.ItemCacheSize)
 		}
 
 		adjacencyItems := vector.Neighbors(itemIndex)
@@ -466,7 +466,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		return errors.NotImplementedf("item neighbor type `%v`", m.Config.Recommend.ItemNeighbors.NeighborType)
 	}
 
-	builder := search.NewIVFBuilder(vectors, m.Config.Recommend.CacheSize,
+	builder := search.NewIVFBuilder(vectors, m.Config.Recommend.ItemCacheSize,
 		search.SetIVFJobsAllocator(j))
 	var recall float32
 	index, recall = builder.Build(m.Config.Recommend.ItemNeighbors.IndexRecall,
@@ -494,12 +494,12 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		if m.Config.Recommend.ItemNeighbors.NeighborType == config.NeighborTypeSimilar ||
 			m.Config.Recommend.ItemNeighbors.NeighborType == config.NeighborTypeAuto {
 			neighbors, scores = index.MultiSearch(vectors[itemIndex], dataset.CategorySet.List(),
-				m.Config.Recommend.CacheSize, true)
+				m.Config.Recommend.ItemCacheSize, true)
 		}
 		if m.Config.Recommend.ItemNeighbors.NeighborType == config.NeighborTypeRelated ||
 			m.Config.Recommend.ItemNeighbors.NeighborType == config.NeighborTypeAuto && len(neighbors[""]) == 0 {
 			neighbors, scores = index.MultiSearch(vectors[itemIndex], dataset.CategorySet.List(),
-				m.Config.Recommend.CacheSize, true)
+				m.Config.Recommend.ItemCacheSize, true)
 		}
 		for category := range neighbors {
 			if categoryNeighbors, exist := neighbors[category]; exist && len(categoryNeighbors) > 0 {
@@ -585,7 +585,7 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 	startTaskTime := time.Now()
 	t.taskMonitor.Start(TaskFindUserNeighbors, t.estimateFindUserNeighborsComplexity(dataset))
 	log.Logger().Info("start searching neighbors of users",
-		zap.Int("n_cache", t.Config.Recommend.CacheSize))
+		zap.Int("n_cache", t.Config.Recommend.UserCacheSize))
 	// create progress tracker
 	completed := make(chan struct{}, 1000)
 	go func() {
@@ -711,7 +711,7 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 		}
 		updateUserCount.Add(1)
 		startTime := time.Now()
-		nearUsers := heap.NewTopKFilter[int32, float32](m.Config.Recommend.CacheSize)
+		nearUsers := heap.NewTopKFilter[int32, float32](m.Config.Recommend.UserCacheSize)
 
 		adjacencyUsers := vectors.Neighbors(userIndex)
 		for _, j := range adjacencyUsers {
@@ -780,7 +780,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 		return errors.NotImplementedf("user neighbor type `%v`", m.Config.Recommend.UserNeighbors.NeighborType)
 	}
 
-	builder := search.NewIVFBuilder(vectors, m.Config.Recommend.CacheSize,
+	builder := search.NewIVFBuilder(vectors, m.Config.Recommend.UserCacheSize,
 		search.SetIVFJobsAllocator(j))
 	var recall float32
 	index, recall = builder.Build(
@@ -806,7 +806,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 		startTime := time.Now()
 		var neighbors []int32
 		var scores []float32
-		neighbors, scores = index.Search(vectors[userIndex], m.Config.Recommend.CacheSize, true)
+		neighbors, scores = index.Search(vectors[userIndex], m.Config.Recommend.UserCacheSize, true)
 		itemScores := make([]cache.Scored, len(neighbors))
 		for i := range scores {
 			itemScores[i].Id = dataset.UserIndex.ToName(neighbors[i])
