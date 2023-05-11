@@ -489,12 +489,12 @@ func (d *SQLDatabase) GetItems(ctx context.Context, cursor string, n int, timeLi
 	cursorItem := string(buf)
 	tx := d.gormDB.WithContext(ctx).Table(d.ItemsTable()).Select("item_id, is_hidden, categories, time_stamp, labels, comment")
 	if cursorItem != "" {
-		//tx.Where("item_id >= ?", cursorItem)
+		tx.Where("item_id >= ?", cursorItem)
 	}
 	if timeLimit != nil {
 		tx.Where("time_stamp >= ?", *timeLimit)
 	}
-	result, err := tx.Order("time_stamp DESC").Limit(n + 1).Rows()
+	result, err := tx.Order("item_id DESC").Limit(n + 1).Rows()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
