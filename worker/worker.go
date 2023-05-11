@@ -560,6 +560,7 @@ func (w *Worker) Recommend(users []data.User) {
 					}
 				}
 			}
+			//log.Logger().Debug("RecommendCache not Timeout", zap.String("user_id", userId), zap.Time("ActiveTime", user.ActiveTime))
 			return nil
 		}
 
@@ -615,7 +616,7 @@ func (w *Worker) Recommend(users []data.User) {
 				collaborativeUsed = true
 				collaborativeRecommendSeconds.Add(usedTime.Seconds())
 			} else if !w.RankingModel.IsUserPredictable(userIndex) {
-				log.Logger().Debug("user is unpredictable", zap.String("user_id", userId))
+				log.Logger().Debug("user is unpredictable", zap.String("user_id", userId), zap.Time("ActiveTime", user.ActiveTime))
 			}
 		} else if w.RankingModel == nil || w.RankingModel.Invalid() {
 			log.Logger().Debug("no collaborative filtering model")
@@ -1066,6 +1067,28 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	)
 
 	userId := user.UserId
+
+	// read active time
+	activeTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			log.Logger().Error("failed to read last modify user time", zap.Error(err))
+		}
+
+		activeTime = user.ActiveTime
+		//用户长时间不活跃，不缓存
+		//return false
+	}
+
+	if user.ActiveTime.Before(activeTime) || user.ActiveTime.IsZero() {
+		user.ActiveTime = activeTime
+	}
+
+	//用户长时间不活跃，不缓存
+	if activeTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
+		return false
+	}
+
 	// check cache
 	for _, category := range append([]string{""}, categories...) {
 		items, err := w.CacheClient.GetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), 0, -1)
@@ -1087,21 +1110,6 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	if cacheDigest != w.Config.OfflineRecommendDigest() {
 		return true
 	}
-	// read active time
-	activeTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			log.Logger().Error("failed to read last modify user time", zap.Error(err))
-		}
-
-		activeTime = user.ActiveTime
-		//用户长时间不活跃，不缓存
-		//return false
-	}
-
-	if user.ActiveTime.Before(activeTime) {
-		user.ActiveTime = activeTime
-	}
 
 	// read recommend time
 	recommendTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
@@ -1114,11 +1122,6 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	// check cache expire
 	if recommendTime.Before(time.Now().Add(-w.Config.Recommend.CacheExpire)) {
 		return true
-	}
-
-	//用户长时间不活跃，不缓存
-	if activeTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
-		return false
 	}
 
 	// check time
@@ -1202,7 +1205,8 @@ func (w *Worker) pullUsers(peers []string, me string) ([]data.User, error) {
 	}
 	// pull users from database
 	var users []data.User
-	userChan, errChan := w.DataClient.GetUserStream(ctx, batchSize)
+	activeTime := time.Now().Add(-w.Config.Recommend.ActiveExpire)
+	userChan, errChan := w.DataClient.GetUserStream(ctx, batchSize, &activeTime)
 	for batchUsers := range userChan {
 		for _, user := range batchUsers {
 			p, err := c.Get(user.UserId)

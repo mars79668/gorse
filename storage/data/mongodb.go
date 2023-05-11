@@ -459,7 +459,7 @@ func (db *MongoDB) GetUsers(ctx context.Context, cursor string, n int) (string, 
 }
 
 // GetUserStream reads users from MongoDB by stream.
-func (db *MongoDB) GetUserStream(ctx context.Context, batchSize int) (chan []User, chan error) {
+func (db *MongoDB) GetUserStream(ctx context.Context, batchSize int, timeLimit *time.Time) (chan []User, chan error) {
 	userChan := make(chan []User, bufSize)
 	errChan := make(chan error, 1)
 	go func() {
@@ -469,7 +469,11 @@ func (db *MongoDB) GetUserStream(ctx context.Context, batchSize int) (chan []Use
 		ctx := context.Background()
 		c := db.client.Database(db.dbName).Collection(db.UsersTable())
 		opt := options.Find()
-		r, err := c.Find(ctx, bson.M{}, opt)
+		filter := bson.M{}
+		if timeLimit != nil {
+			filter["active_time"] = bson.M{"$gt": *timeLimit}
+		}
+		r, err := c.Find(ctx, filter, opt)
 		if err != nil {
 			errChan <- errors.Trace(err)
 			return

@@ -969,7 +969,8 @@ func (m *Master) importExportUsers(response http.ResponseWriter, request *http.R
 			return
 		}
 		// write rows
-		userChan, errChan := m.DataClient.GetUserStream(ctx, batchSize)
+		activeTime := time.Now().Add(-m.Config.Recommend.ActiveExpire)
+		userChan, errChan := m.DataClient.GetUserStream(ctx, batchSize, &activeTime)
 		for users := range userChan {
 			for _, user := range users {
 				if _, err = response.Write([]byte(fmt.Sprintf("%s,%s\r\n",

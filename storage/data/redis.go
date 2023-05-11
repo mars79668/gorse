@@ -369,7 +369,7 @@ func (r *Redis) GetUsers(ctx context.Context, cursor string, n int) (string, []U
 }
 
 // GetUserStream read users from Redis by stream.
-func (r *Redis) GetUserStream(ctx context.Context, batchSize int) (chan []User, chan error) {
+func (r *Redis) GetUserStream(ctx context.Context, batchSize int, timeLimit *time.Time) (chan []User, chan error) {
 	userChan := make(chan []User, bufSize)
 	errChan := make(chan error, 1)
 	go func() {
@@ -398,6 +398,11 @@ func (r *Redis) GetUserStream(ctx context.Context, batchSize int) (chan []User, 
 					errChan <- errors.Trace(err)
 					return
 				}
+				// compare timestamp
+				if timeLimit != nil && user.ActiveTime.Unix() < timeLimit.Unix() {
+					continue
+				}
+
 				users = append(users, user)
 				if len(users) == batchSize {
 					userChan <- users

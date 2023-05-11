@@ -1440,7 +1440,8 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	userLabelFirst := make(map[string]int32)
 	userLabelIndex := base.NewMapIndex()
 	start := time.Now()
-	userChan, errChan := database.GetUserStream(ctx, batchSize)
+	activeTime := time.Now().Add(-m.Config.Recommend.ActiveExpire)
+	userChan, errChan := database.GetUserStream(ctx, batchSize, &activeTime)
 	for users := range userChan {
 		for _, user := range users {
 			rankingDataset.AddUser(user.UserId)

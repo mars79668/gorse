@@ -12,7 +12,13 @@ build() {
        -X 'github.com/zhenghaoz/gorse/cmd/version.Version=$(git describe --tags $(git rev-parse HEAD))' \
        -X 'github.com/zhenghaoz/gorse/cmd/version.GitCommit=$(git rev-parse HEAD)' \
        -X 'github.com/zhenghaoz/gorse/cmd/version.BuildTime=$(date)'" . 
+    
+    if [ "$?" != "0" ];then
+        exit -1
+    fi
     ./gorse-${MODULENAME} --version
+    upx ./gorse-${MODULENAME}
+    docker build -f Dockerfile.u -t gorse-$MODULENAME:latest .
     cd -
 }
 

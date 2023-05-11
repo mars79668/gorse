@@ -64,7 +64,8 @@ func (suite *baseTestSuite) getUsers(ctx context.Context, batchSize int) []User 
 
 func (suite *baseTestSuite) getUsersStream(ctx context.Context, batchSize int) []User {
 	var users []User
-	userChan, errChan := suite.Database.GetUserStream(ctx, batchSize)
+	activeTime := time.Now().Add(-time.Hour * 72)
+	userChan, errChan := suite.Database.GetUserStream(ctx, batchSize, &activeTime)
 	for batchUsers := range userChan {
 		users = append(users, batchUsers...)
 	}

@@ -108,7 +108,7 @@ func (NoDatabase) GetUsers(_ context.Context, _ string, _ int) (string, []User, 
 }
 
 // GetUserStream method of NoDatabase returns ErrNoDatabase.
-func (NoDatabase) GetUserStream(_ context.Context, _ int) (chan []User, chan error) {
+func (NoDatabase) GetUserStream(_ context.Context, _ int, _ *time.Time) (chan []User, chan error) {
 	userChan := make(chan []User, bufSize)
 	errChan := make(chan error, 1)
 	go func() {

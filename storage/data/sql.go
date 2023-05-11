@@ -71,10 +71,11 @@ func NewSQLItem(item Item) (sqlItem SQLItem) {
 }
 
 type SQLUser struct {
-	UserId    string `gorm:"column:user_id;primaryKey"`
-	Labels    string `gorm:"column:labels"`
-	Subscribe string `gorm:"column:subscribe"`
-	Comment   string `gorm:"column:comment"`
+	UserId     string    `gorm:"column:user_id;primaryKey"`
+	Labels     string    `gorm:"column:labels"`
+	Subscribe  string    `gorm:"column:subscribe"`
+	Comment    string    `gorm:"column:comment"`
+	ActiveTime time.Time `gorm:"column:active_time"`
 }
 
 func NewSQLUser(user User) (sqlUser SQLUser) {
@@ -85,6 +86,7 @@ func NewSQLUser(user User) (sqlUser SQLUser) {
 	buf, _ = json.Marshal(user.Subscribe)
 	sqlUser.Subscribe = string(buf)
 	sqlUser.Comment = user.Comment
+	sqlUser.ActiveTime = user.ActiveTime
 	return
 }
 
@@ -151,10 +153,11 @@ func (d *SQLDatabase) Init() error {
 			Comment    string    `gorm:"column:comment;type:text;not null"`
 		}
 		type Users struct {
-			UserId    string   `gorm:"column:user_id;type:varchar(256);not null;primaryKey"`
-			Labels    []string `gorm:"column:labels;type:json;not null"`
-			Subscribe []string `gorm:"column:subscribe;type:json;not null"`
-			Comment   string   `gorm:"column:comment;type:text;not null"`
+			UserId     string    `gorm:"column:user_id;type:varchar(256);not null;primaryKey"`
+			Labels     []string  `gorm:"column:labels;type:json;not null"`
+			Subscribe  []string  `gorm:"column:subscribe;type:json;not null"`
+			Comment    string    `gorm:"column:comment;type:text;not null"`
+			ActiveTime time.Time `gorm:"column:active_time;type:datetime;not null"`
 		}
 		type Feedback struct {
 			FeedbackType string    `gorm:"column:feedback_type;type:varchar(256);not null;primaryKey"`
@@ -178,10 +181,11 @@ func (d *SQLDatabase) Init() error {
 			Comment    string    `gorm:"column:comment;type:text;not null;default:''"`
 		}
 		type Users struct {
-			UserId    string `gorm:"column:user_id;type:varchar(256) not null;primaryKey"`
-			Labels    string `gorm:"column:labels;type:json;not null;default:'[]'"`
-			Subscribe string `gorm:"column:subscribe;type:json;not null;default:'[]'"`
-			Comment   string `gorm:"column:comment;type:text;not null;default:''"`
+			UserId     string    `gorm:"column:user_id;type:varchar(256) not null;primaryKey"`
+			Labels     string    `gorm:"column:labels;type:json;not null;default:'[]'"`
+			Subscribe  string    `gorm:"column:subscribe;type:json;not null;default:'[]'"`
+			Comment    string    `gorm:"column:comment;type:text;not null;default:''"`
+			ActiveTime time.Time `gorm:"column:active_time;type:timestamptz;not null"`
 		}
 		type Feedback struct {
 			FeedbackType string    `gorm:"column:feedback_type;type:varchar(256);not null;primaryKey"`
@@ -205,10 +209,11 @@ func (d *SQLDatabase) Init() error {
 			Comment    string `gorm:"column:comment;type:text;not null;default:''"`
 		}
 		type Users struct {
-			UserId    string `gorm:"column:user_id;type:varchar(256) not null;primaryKey"`
-			Labels    string `gorm:"column:labels;type:json;not null;default:'[]'"`
-			Subscribe string `gorm:"column:subscribe;type:json;not null;default:'[]'"`
-			Comment   string `gorm:"column:comment;type:text;not null;default:''"`
+			UserId     string `gorm:"column:user_id;type:varchar(256) not null;primaryKey"`
+			Labels     string `gorm:"column:labels;type:json;not null;default:'[]'"`
+			Subscribe  string `gorm:"column:subscribe;type:json;not null;default:'[]'"`
+			Comment    string `gorm:"column:comment;type:text;not null;default:''"`
+			ActiveTime string `gorm:"column:active_time;type:datetime;not null;default:'0001-01-01'"`
 		}
 		type Feedback struct {
 			FeedbackType string `gorm:"column:feedback_type;type:varchar(256);not null;primaryKey"`
@@ -232,10 +237,11 @@ func (d *SQLDatabase) Init() error {
 			Comment    string    `gorm:"column:\"COMMENT\";type:varchar2(4000)"`
 		}
 		type Users struct {
-			UserId    string   `gorm:"column:USER_ID;type:varchar2(256);not null;primaryKey"`
-			Labels    []string `gorm:"column:LABELS;type:varchar2(4000);not null"`
-			Subscribe []string `gorm:"column:SUBSCRIBE;type:varchar2(4000);not null"`
-			Comment   string   `gorm:"column:\"COMMENT\";type:varchar2(4000)"`
+			UserId     string    `gorm:"column:USER_ID;type:varchar2(256);not null;primaryKey"`
+			Labels     []string  `gorm:"column:LABELS;type:varchar2(4000);not null"`
+			Subscribe  []string  `gorm:"column:SUBSCRIBE;type:varchar2(4000);not null"`
+			Comment    string    `gorm:"column:\"COMMENT\";type:varchar2(4000)"`
+			ActiveTime time.Time `gorm:"column:ACTIVE_TIME;type:TIMESTAMP;not null"`
 		}
 		type Feedback struct {
 			FeedbackType string    `gorm:"column:FEEDBACK_TYPE;type:varchar2(256);not null;primaryKey"`
@@ -264,11 +270,12 @@ func (d *SQLDatabase) Init() error {
 			return errors.Trace(err)
 		}
 		type Users struct {
-			UserId    string   `gorm:"column:user_id;type:String"`
-			Labels    string   `gorm:"column:labels;type:String;default:'[]'"`
-			Subscribe string   `gorm:"column:subscribe;type:String;default:'[]'"`
-			Comment   string   `gorm:"column:comment;type:String"`
-			Version   struct{} `gorm:"column:version;type:DateTime"`
+			UserId     string    `gorm:"column:user_id;type:String"`
+			Labels     string    `gorm:"column:labels;type:String;default:'[]'"`
+			Subscribe  string    `gorm:"column:subscribe;type:String;default:'[]'"`
+			Comment    string    `gorm:"column:comment;type:String"`
+			ActiveTime time.Time `gorm:"column:active_time;type:Datetime"`
+			Version    struct{}  `gorm:"column:version;type:DateTime"`
 		}
 		err = d.gormDB.Set("gorm:table_options", "ENGINE = ReplacingMergeTree(version) ORDER BY user_id").AutoMigrate(Users{})
 		if err != nil {
@@ -523,7 +530,8 @@ func (d *SQLDatabase) GetItemStream(ctx context.Context, batchSize int, timeLimi
 		defer close(itemChan)
 		defer close(errChan)
 		// send query
-		tx := d.gormDB.WithContext(ctx).Table(d.ItemsTable()).Select("item_id, is_hidden, categories, time_stamp, labels, comment")
+		tx := d.gormDB.WithContext(ctx).Table(d.ItemsTable()).
+			Select("item_id, is_hidden, categories, time_stamp, labels, comment")
 		if timeLimit != nil {
 			tx.Where("time_stamp >= ?", *timeLimit)
 		}
@@ -732,14 +740,20 @@ func (d *SQLDatabase) GetUsers(ctx context.Context, cursor string, n int) (strin
 }
 
 // GetUserStream read users by stream.
-func (d *SQLDatabase) GetUserStream(ctx context.Context, batchSize int) (chan []User, chan error) {
+func (d *SQLDatabase) GetUserStream(ctx context.Context, batchSize int, timeLimit *time.Time) (chan []User, chan error) {
 	userChan := make(chan []User, bufSize)
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(userChan)
 		defer close(errChan)
 		// send query
-		result, err := d.gormDB.WithContext(ctx).Table(d.UsersTable()).Select("user_id, labels, subscribe, comment").Rows()
+		tx := d.gormDB.WithContext(ctx).Table(d.UsersTable()).
+			Select("user_id, labels, subscribe, comment,active_time")
+		if timeLimit != nil {
+			tx.Where("active_time >= ?", *timeLimit)
+		}
+
+		result, err := tx.Rows()
 		if err != nil {
 			errChan <- errors.Trace(err)
 			return
@@ -751,7 +765,7 @@ func (d *SQLDatabase) GetUserStream(ctx context.Context, batchSize int) (chan []
 			var user User
 			var labels string
 			var subscribe string
-			if err = result.Scan(&user.UserId, &labels, &subscribe, &user.Comment); err != nil {
+			if err = result.Scan(&user.UserId, &labels, &subscribe, &user.Comment, &user.ActiveTime); err != nil {
 				errChan <- errors.Trace(err)
 				return
 			}
@@ -841,12 +855,13 @@ func (d *SQLDatabase) BatchInsertFeedback(ctx context.Context, feedback []Feedba
 		} else {
 			err := tx.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "user_id"}},
-				DoNothing: true,
+				DoUpdates: clause.AssignmentColumns([]string{"active_time"}),
 			}).Create(lo.Map(userList, func(userId string, _ int) SQLUser {
 				return SQLUser{
-					UserId:    userId,
-					Labels:    "[]",
-					Subscribe: "[]",
+					UserId:     userId,
+					Labels:     "[]",
+					Subscribe:  "[]",
+					ActiveTime: time.Now(),
 				}
 			})).Error
 			if err != nil {
