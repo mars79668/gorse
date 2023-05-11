@@ -490,8 +490,12 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		}()
 		itemId := dataset.ItemIndex.ToName(int32(itemIndex))
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
+			log.Logger().Debug("ItemNeighborCache NOT Timeout",
+				zap.String("item", itemId))
 			return nil
 		}
+		log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
+			zap.String("item", itemId))
 		updateItemCount.Add(1)
 		startTime := time.Now()
 		var neighbors map[string][]int32
@@ -874,13 +878,6 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 		err          error
 	)
 	ctx := context.Background()
-	// check cache
-	if items, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, -1); err != nil {
-		log.Logger().Error("failed to load user neighbors", zap.String("user_id", userId), zap.Error(err))
-		return true
-	} else if len(items) == 0 {
-		return true
-	}
 	// read digest
 	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, userId)).String()
 	if err != nil {
@@ -912,6 +909,15 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	if updateTime.Before(time.Now().Add(-m.Config.Recommend.CacheExpire)) {
 		return true
 	}
+
+	// check cache
+	// if items, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, userId, 0, -1); err != nil {
+	// 	log.Logger().Error("failed to load user neighbors", zap.String("user_id", userId), zap.Error(err))
+	// 	return true
+	// } else if len(items) == 0 {
+	// 	return true
+	// }
+
 	// check time
 	return updateTime.Unix() <= modifiedTime.Unix()
 }
@@ -928,16 +934,6 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	)
 	ctx := context.Background()
 
-	// check cache
-	for _, category := range append([]string{""}, categories...) {
-		items, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, -1)
-		if err != nil {
-			log.Logger().Error("failed to load item neighbors", zap.String("item_id", itemId), zap.Error(err))
-			return true
-		} else if len(items) == 0 {
-			return true
-		}
-	}
 	// read digest
 	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
 	if err != nil {
@@ -969,6 +965,18 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	if updateTime.Before(time.Now().Add(-m.Config.Recommend.CacheExpire)) {
 		return true
 	}
+
+	// check cache
+	// for _, category := range append([]string{""}, categories...) {
+	// 	items, err := m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), 0, -1)
+	// 	if err != nil {
+	// 		log.Logger().Error("failed to load item neighbors", zap.String("item_id", itemId), zap.Error(err))
+	// 		return true
+	// 	} else if len(items) == 0 {
+	// 		return true
+	// 	}
+	// }
+
 	// check time
 	return updateTime.Unix() <= modifiedTime.Unix()
 }
