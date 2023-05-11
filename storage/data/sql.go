@@ -489,12 +489,12 @@ func (d *SQLDatabase) GetItems(ctx context.Context, cursor string, n int, timeLi
 	cursorItem := string(buf)
 	tx := d.gormDB.WithContext(ctx).Table(d.ItemsTable()).Select("item_id, is_hidden, categories, time_stamp, labels, comment")
 	if cursorItem != "" {
-		tx.Where("item_id >= ?", cursorItem)
+		//tx.Where("item_id >= ?", cursorItem)
 	}
 	if timeLimit != nil {
 		tx.Where("time_stamp >= ?", *timeLimit)
 	}
-	result, err := tx.Order("item_id").Limit(n + 1).Rows()
+	result, err := tx.Order("time_stamp DESC").Limit(n + 1).Rows()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -629,7 +629,7 @@ func (d *SQLDatabase) BatchInsertUsers(ctx context.Context, users []User) error 
 		}
 		err := d.gormDB.WithContext(ctx).Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "user_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"labels", "subscribe", "comment"}),
+			DoUpdates: clause.AssignmentColumns([]string{"labels", "subscribe", "comment", "active_time"}),
 		}).Create(rows).Error
 		return errors.Trace(err)
 	}
@@ -707,11 +707,11 @@ func (d *SQLDatabase) GetUsers(ctx context.Context, cursor string, n int) (strin
 		return "", nil, errors.Trace(err)
 	}
 	cursorUser := string(buf)
-	tx := d.gormDB.WithContext(ctx).Table(d.UsersTable()).Select("user_id, labels, subscribe, comment")
+	tx := d.gormDB.WithContext(ctx).Table(d.UsersTable()).Select("user_id, labels, subscribe, comment,active_time")
 	if cursorUser != "" {
 		tx.Where("user_id >= ?", cursorUser)
 	}
-	result, err := tx.Order("user_id").Limit(n + 1).Rows()
+	result, err := tx.Order("active_time DESC").Limit(n + 1).Rows()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -721,7 +721,7 @@ func (d *SQLDatabase) GetUsers(ctx context.Context, cursor string, n int) (strin
 		var user User
 		var labels, subscribe string
 		var comment sql.NullString
-		if err = result.Scan(&user.UserId, &labels, &subscribe, &comment); err != nil {
+		if err = result.Scan(&user.UserId, &labels, &subscribe, &comment, &user.ActiveTime); err != nil {
 			return "", nil, errors.Trace(err)
 		}
 		if err = json.Unmarshal([]byte(labels), &user.Labels); err != nil {

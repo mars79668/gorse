@@ -384,8 +384,13 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 		}()
 		itemId := dataset.ItemIndex.ToName(int32(itemIndex))
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
+			log.Logger().Debug("ItemNeighborCache NOT Timeout",
+				zap.String("item", itemId))
 			return nil
 		}
+
+		log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
+			zap.String("item", itemId))
 		updateItemCount.Add(1)
 		startTime := time.Now()
 		nearItemsFilters := make(map[string]*heap.TopKFilter[int32, float32])
@@ -1665,7 +1670,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	LoadDatasetStepSecondsVec.WithLabelValues("create_ranking_dataset").Set(time.Since(start).Seconds())
 
 	// collect latest items
-	log.Logger().Debug("collect latest items", zap.Int("len", len(latestItemsFilters)))
+	log.Logger().Debug("collect latest items Filters", zap.Int("len", len(latestItemsFilters)))
 	latestItems = make(map[string][]cache.Scored)
 	for category, latestItemsFilter := range latestItemsFilters {
 		items, scores := latestItemsFilter.PopAll()
@@ -1673,7 +1678,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	}
 
 	// collect popular items
-	log.Logger().Debug(" collect popular items", zap.Int("len", len(popularCount)))
+	log.Logger().Debug("collect popular items", zap.Int("len", len(popularCount)))
 	popularItemFilters := make(map[string]*heap.TopKFilter[string, float64])
 	popularItemFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
 	for itemIndex, val := range popularCount {
@@ -1688,7 +1693,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 		}
 	}
 	popularItems = make(map[string][]cache.Scored)
-	log.Logger().Debug(" collect popularItemFilter", zap.Int("len", len(popularItemFilters)))
+	log.Logger().Debug("collect popularItemFilter", zap.Int("len", len(popularItemFilters)))
 	for category, popularItemFilter := range popularItemFilters {
 		items, scores := popularItemFilter.PopAll()
 		popularItems[category] = cache.CreateScoredItems(items, scores)

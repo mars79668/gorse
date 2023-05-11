@@ -210,6 +210,8 @@ func (m *Master) Serve() {
 		log.Logger().Fatal("failed to set TTL", zap.Error(err))
 	}
 
+	log.Logger().Info("connect data store",
+		zap.String("database", log.RedactDBURL(m.Config.Database.DataStore)))
 	// connect data database
 	m.DataClient, err = data.Open(m.Config.Database.DataStore, m.Config.Database.DataTablePrefix)
 	if err != nil {
@@ -220,7 +222,12 @@ func (m *Master) Serve() {
 		log.Logger().Fatal("failed to init database", zap.Error(err))
 	}
 
+	log.Logger().Info("connect data store ok",
+		zap.String("database", log.RedactDBURL(m.Config.Database.DataStore)))
+
 	// connect cache database
+	log.Logger().Info("connect cache store",
+		zap.String("database", log.RedactDBURL(m.Config.Database.CacheStore)))
 	m.CacheClient, err = cache.Open(m.Config.Database.CacheStore, m.Config.Database.CacheTablePrefix)
 	if err != nil {
 		log.Logger().Fatal("failed to connect cache database", zap.Error(err),
@@ -229,6 +236,9 @@ func (m *Master) Serve() {
 	if err = m.CacheClient.Init(); err != nil {
 		log.Logger().Fatal("failed to init database", zap.Error(err))
 	}
+
+	log.Logger().Info("connect cache store ok",
+		zap.String("database", log.RedactDBURL(m.Config.Database.CacheStore)))
 
 	m.RestServer.HiddenItemsManager = server.NewHiddenItemsManager(&m.RestServer)
 	m.RestServer.PopularItemsCache = server.NewPopularItemsCache(&m.RestServer)

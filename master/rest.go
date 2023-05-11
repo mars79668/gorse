@@ -743,6 +743,11 @@ func (m *Master) getUsers(request *restful.Request, response *restful.Response) 
 			server.InternalServerError(response, err)
 			return
 		}
+
+		if details[i].LastActiveTime.IsZero() {
+			details[i].LastActiveTime = user.ActiveTime
+		}
+
 		if details[i].LastUpdateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
 			server.InternalServerError(response, err)
 			return
