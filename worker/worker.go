@@ -551,8 +551,18 @@ func (w *Worker) Recommend(users []data.User) {
 		userId := user.UserId
 		// skip inactive users before max recommend period
 		if !w.checkRecommendCacheTimeout(ctx, user, itemCategories) {
+			if user.ActiveTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
+				//用户不活跃，清除缓存
+				for _, category := range itemCategories {
+					if err = w.CacheClient.SetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), nil); err != nil {
+						log.Logger().Error("failed to cache recommendation", zap.Error(err))
+						//return errors.Trace(err)
+					}
+				}
+			}
 			return nil
 		}
+
 		updateUserCount.Add(1)
 
 		// load historical items
@@ -1088,6 +1098,11 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		//用户长时间不活跃，不缓存
 		//return false
 	}
+
+	if user.ActiveTime.Before(activeTime) {
+		user.ActiveTime = activeTime
+	}
+
 	// read recommend time
 	recommendTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
 	if err != nil {
