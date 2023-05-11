@@ -878,6 +878,16 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 		err          error
 	)
 	ctx := context.Background()
+	// read modified time
+	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			log.Logger().Error("failed to read last modify user time", zap.Error(err))
+		}
+		m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
+		return true
+	}
+
 	// read digest
 	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, userId)).String()
 	if err != nil {
@@ -889,14 +899,7 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	if cacheDigest != m.Config.UserNeighborDigest() {
 		return true
 	}
-	// read modified time
-	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			log.Logger().Error("failed to read last modify user time", zap.Error(err))
-		}
-		return true
-	}
+
 	// read update time
 	updateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, userId)).Time()
 	if err != nil {
@@ -934,6 +937,16 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	)
 	ctx := context.Background()
 
+	// read modified time
+	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, itemId)).Time()
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			log.Logger().Error("failed to read last modify item time", zap.Error(err))
+		}
+		m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now()))
+		return true
+	}
+
 	// read digest
 	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
 	if err != nil {
@@ -945,14 +958,7 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	if cacheDigest != m.Config.ItemNeighborDigest() {
 		return true
 	}
-	// read modified time
-	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, itemId)).Time()
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			log.Logger().Error("failed to read last modify item time", zap.Error(err))
-		}
-		return true
-	}
+
 	// read update time
 	updateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, itemId)).Time()
 	if err != nil {

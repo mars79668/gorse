@@ -65,7 +65,7 @@ const (
 
 	// ItemNeighborsDigest is digest of item neighbors configuration
 	//	Item neighbors digest      - item_neighbors_digest/{item_id}
-	ItemNeighborsDigest = "item_neighbors_digest"
+	ItemNeighborsDigest = "ind" //"item_neighbors_digest"
 
 	// UserNeighbors is sorted set of neighbors for each user.
 	//  User neighbors      - user_neighbors/{user_id}
@@ -73,7 +73,7 @@ const (
 
 	// UserNeighborsDigest is digest of user neighbors configuration
 	//  User neighbors digest      - user_neighbors_digest/{user_id}
-	UserNeighborsDigest = "user_neighbors_digest"
+	UserNeighborsDigest = "und" //"user_neighbors_digest"
 
 	// CollaborativeRecommend is sorted set of collaborative filtering recommendations for each user.
 	//  Global recommendation      - collaborative_recommend/{user_id}
@@ -87,7 +87,7 @@ const (
 
 	// OfflineRecommendDigest is digest of offline recommendation configuration.
 	//	Recommendation digest      - offline_recommend_digest/{user_id}
-	OfflineRecommendDigest = "offline_recommend_digest"
+	OfflineRecommendDigest = "ord" //"offline_recommend_digest"
 
 	// PopularItems is sorted set of popular items. The format of key:
 	//  Global popular items      - latest_items
@@ -103,11 +103,11 @@ const (
 	//	Global item categories - item_categories
 	ItemCategories = "item_categories"
 
-	LastModifyItemTime          = "last_modify_item_time"           // the latest timestamp that a user related data was modified
-	LastModifyUserTime          = "last_modify_user_time"           // the latest timestamp that an item related data was modified
-	LastUpdateUserRecommendTime = "last_update_user_recommend_time" // the latest timestamp that a user's recommendation was updated
-	LastUpdateUserNeighborsTime = "last_update_user_neighbors_time" // the latest timestamp that a user's neighbors item was updated
-	LastUpdateItemNeighborsTime = "last_update_item_neighbors_time" // the latest timestamp that an item's neighbors was updated
+	LastModifyItemTime          = "lmit"  //"last_modify_item_time"           // the latest timestamp that a user related data was modified
+	LastModifyUserTime          = "lmut"  //"last_modify_user_time"           // the latest timestamp that an item related data was modified
+	LastUpdateUserRecommendTime = "luurt" //"last_update_user_recommend_time" // the latest timestamp that a user's recommendation was updated
+	LastUpdateUserNeighborsTime = "luunt" //"last_update_user_neighbors_time" // the latest timestamp that a user's neighbors item was updated
+	LastUpdateItemNeighborsTime = "luint" //"last_update_item_neighbors_time" // the latest timestamp that an item's neighbors was updated
 
 	// GlobalMeta is global meta information
 	GlobalMeta                 = "global_meta"
@@ -235,7 +235,7 @@ func Integer(name string, value int) Value {
 }
 
 func Time(name string, value time.Time) Value {
-	return Value{name: name, value: value.String()}
+	return Value{name: name, value: value.Format(time.RFC3339)}
 }
 
 type ReturnValue struct {
