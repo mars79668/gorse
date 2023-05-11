@@ -1089,16 +1089,6 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		return false
 	}
 
-	// check cache
-	for _, category := range append([]string{""}, categories...) {
-		items, err := w.CacheClient.GetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), 0, -1)
-		if err != nil {
-			log.Logger().Error("failed to load offline recommendation", zap.String("user_id", userId), zap.Error(err))
-			return true
-		} else if len(items) == 0 {
-			return true
-		}
-	}
 	// read digest
 	cacheDigest, err = w.CacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
 	if err != nil {
@@ -1129,6 +1119,17 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)
 		return timeoutTime.Before(time.Now())
 	}
+
+	// check cache
+	// for _, category := range append([]string{""}, categories...) {
+	// 	items, err := w.CacheClient.GetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), 0, -1)
+	// 	if err != nil {
+	// 		log.Logger().Error("failed to load offline recommendation", zap.String("user_id", userId), zap.Error(err))
+	// 		return true
+	// 	} else if len(items) == 0 {
+	// 		return true
+	// 	}
+	// }
 	return true
 }
 
