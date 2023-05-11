@@ -494,7 +494,7 @@ func (d *SQLDatabase) GetItems(ctx context.Context, cursor string, n int, timeLi
 	if timeLimit != nil {
 		tx.Where("time_stamp >= ?", *timeLimit)
 	}
-	result, err := tx.Order("item_id DESC").Limit(n + 1).Rows()
+	result, err := tx.Order("item_id").Limit(n + 1).Rows()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
