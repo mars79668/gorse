@@ -678,6 +678,8 @@ func (r *Redis) ModifyUser(ctx context.Context, userId string, patch UserPatch) 
 	if patch.Subscribe != nil {
 		user.Subscribe = patch.Subscribe
 	}
+
+	user.ActiveTime = time.Now()
 	// write back
 	return r.insertUser(ctx, user)
 }

@@ -1201,6 +1201,7 @@ func (s *RestServer) insertUser(request *restful.Request, response *restful.Resp
 		BadRequest(response, err)
 		return
 	}
+	temp.ActiveTime = time.Now()
 	if err := s.DataClient.BatchInsertUsers(ctx, []data.User{temp}); err != nil {
 		InternalServerError(response, err)
 		return

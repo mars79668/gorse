@@ -686,6 +686,8 @@ func (d *SQLDatabase) ModifyUser(ctx context.Context, userId string, patch UserP
 		text, _ := json.Marshal(patch.Subscribe)
 		attributes["subscribe"] = string(text)
 	}
+
+	attributes["active_time"] = time.Now()
 	err := d.gormDB.WithContext(ctx).Model(&SQLUser{UserId: userId}).Updates(attributes).Error
 	return errors.Trace(err)
 }

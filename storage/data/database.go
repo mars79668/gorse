@@ -73,6 +73,8 @@ type User struct {
 	Labels    []string `gorm:"serializer:json"`
 	Subscribe []string `gorm:"serializer:json"`
 	Comment   string
+
+	ActiveTime time.Time
 }
 
 // UserPatch is the modification on a user.

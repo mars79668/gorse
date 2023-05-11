@@ -515,7 +515,7 @@ func (w *Worker) Recommend(users []data.User) {
 					vectors[i] = search.NewDenseVector(w.RankingModel.GetItemFactor(i), nil, true)
 				}
 			}
-			builder := search.NewHNSWBuilder(vectors, w.Config.Recommend.CacheSize, w.jobs)
+			builder := search.NewHNSWBuilder(vectors, w.Config.Recommend.ItemCacheSize, w.jobs)
 			var recall float32
 			w.rankingIndex, recall = builder.Build(w.Config.Recommend.Collaborative.IndexRecall,
 				w.Config.Recommend.Collaborative.IndexFitEpoch, false, recommendTask)
@@ -550,7 +550,7 @@ func (w *Worker) Recommend(users []data.User) {
 		user := users[jobId]
 		userId := user.UserId
 		// skip inactive users before max recommend period
-		if !w.checkRecommendCacheTimeout(ctx, userId, itemCategories) {
+		if !w.checkRecommendCacheTimeout(ctx, user, itemCategories) {
 			return nil
 		}
 		updateUserCount.Add(1)
@@ -1047,13 +1047,15 @@ func (w *Worker) exploreRecommend(exploitRecommend []cache.Scored, excludeSet *s
 // 1. if cache is empty, stale.
 // 2. if active time > recommend time, stale.
 // 3. if recommend time + timeout < now, stale.
-func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, userId string, categories []string) bool {
+func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User, categories []string) bool {
 	var (
 		activeTime    time.Time
 		recommendTime time.Time
 		cacheDigest   string
 		err           error
 	)
+
+	userId := user.UserId
 	// check cache
 	for _, category := range append([]string{""}, categories...) {
 		items, err := w.CacheClient.GetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), 0, -1)
@@ -1081,7 +1083,10 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, userId string, 
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
 		}
-		return true
+
+		activeTime = user.ActiveTime
+		//用户长时间不活跃，不缓存
+		//return false
 	}
 	// read recommend time
 	recommendTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
@@ -1095,6 +1100,12 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, userId string, 
 	if recommendTime.Before(time.Now().Add(-w.Config.Recommend.CacheExpire)) {
 		return true
 	}
+
+	//用户长时间不活跃，不缓存
+	if activeTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
+		return false
+	}
+
 	// check time
 	if activeTime.Before(recommendTime) {
 		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)

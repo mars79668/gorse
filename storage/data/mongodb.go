@@ -392,6 +392,8 @@ func (db *MongoDB) ModifyUser(ctx context.Context, userId string, patch UserPatc
 	if patch.Subscribe != nil {
 		update["subscribe"] = patch.Subscribe
 	}
+
+	update["active_time"] = time.Now()
 	// execute
 	c := db.client.Database(db.dbName).Collection(db.UsersTable())
 	_, err := c.UpdateOne(ctx, bson.M{"userid": bson.M{"$eq": userId}}, bson.M{"$set": update})

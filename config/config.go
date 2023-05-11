@@ -99,9 +99,11 @@ type ServerConfig struct {
 
 // RecommendConfig is the configuration of recommendation setup.
 type RecommendConfig struct {
-	CacheSize     int                 `mapstructure:"cache_size" validate:"gt=0"`
-	ItemCacheSize int                 `mapstructure:"item_cache_size" validate:"gt=0"`
-	UserCacheSize int                 `mapstructure:"user_cache_size" validate:"gt=0"`
+	CacheSize     int `mapstructure:"cache_size" validate:"gt=0"`
+	ItemCacheSize int `mapstructure:"item_cache_size" validate:"gt=0"`
+	UserCacheSize int `mapstructure:"user_cache_size" validate:"gt=0"`
+
+	ActiveExpire  time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
 	CacheExpire   time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
 	DataSource    DataSourceConfig    `mapstructure:"data_source"`
 	Popular       PopularConfig       `mapstructure:"popular"`
@@ -198,6 +200,7 @@ func GetDefaultConfig() *Config {
 			ItemCacheSize: 20,
 			UserCacheSize: 10,
 			CacheExpire:   72 * time.Hour,
+			ActiveExpire:  72 * time.Hour,
 			Popular: PopularConfig{
 				PopularWindow: 180 * 24 * time.Hour,
 			},

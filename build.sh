@@ -1,8 +1,19 @@
 #!/bin/sh
 
-build() {
+dbuild() {
     MODULENAME=$1
     docker build -f cmd/gorse-$MODULENAME/Dockerfile -t gorse-$MODULENAME:latest .
+}
+
+build() {
+    MODULENAME=$1
+    cd cmd/gorse-${MODULENAME} && \
+    CGO_ENABLED=0 go build -ldflags=" \
+       -X 'github.com/zhenghaoz/gorse/cmd/version.Version=$(git describe --tags $(git rev-parse HEAD))' \
+       -X 'github.com/zhenghaoz/gorse/cmd/version.GitCommit=$(git rev-parse HEAD)' \
+       -X 'github.com/zhenghaoz/gorse/cmd/version.BuildTime=$(date)'" . 
+    ./gorse-${MODULENAME} --version
+    cd -
 }
 
 dpush() {
@@ -26,6 +37,9 @@ dpush() {
 case "$1" in
 build)
     build $2
+;;
+dbuild)
+    dbuild $2
 ;;
 pbuild)
     build $2
