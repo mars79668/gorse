@@ -45,6 +45,10 @@ func (NoDatabase) Set(_ context.Context, _ ...Value) error {
 	return ErrNoDatabase
 }
 
+func (NoDatabase) Add(_ context.Context, _ ...Value) error {
+	return ErrNoDatabase
+}
+
 // Get method of NoDatabase returns ErrNoDatabase.
 func (NoDatabase) Get(_ context.Context, _ string) *ReturnValue {
 	return &ReturnValue{err: ErrNoDatabase}

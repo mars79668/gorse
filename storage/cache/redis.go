@@ -292,6 +292,17 @@ func (r *Redis) Set(ctx context.Context, values ...Value) error {
 	return errors.Trace(err)
 }
 
+func (r *Redis) Add(ctx context.Context, values ...Value) error {
+	p := r.client.Pipeline()
+	for _, v := range values {
+		if err := p.SetNX(ctx, r.Key(v.name), v.value, 0).Err(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	_, err := p.Exec(ctx)
+	return errors.Trace(err)
+}
+
 // Get returns a value from Redis.
 func (r *Redis) Get(ctx context.Context, key string) *ReturnValue {
 	val, err := r.client.Get(ctx, r.Key(key)).Result()

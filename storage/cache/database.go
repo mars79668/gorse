@@ -287,6 +287,7 @@ type Database interface {
 	Scan(work func(string) error) error
 	Purge(checkedList []string) error
 
+	Add(ctx context.Context, values ...Value) error
 	Set(ctx context.Context, values ...Value) error
 	Get(ctx context.Context, name string) *ReturnValue
 	Delete(ctx context.Context, name string) error

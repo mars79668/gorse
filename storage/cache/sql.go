@@ -279,6 +279,28 @@ func (db *SQLDatabase) Set(ctx context.Context, values ...Value) error {
 	return errors.Trace(err)
 }
 
+func (db *SQLDatabase) Add(ctx context.Context, values ...Value) error {
+	if len(values) == 0 {
+		return nil
+	}
+	valueSet := strset.New()
+	rows := make([]SQLValue, 0, len(values))
+	for _, value := range values {
+		if !valueSet.Has(value.name) {
+			rows = append(rows, SQLValue{
+				Name:  value.name,
+				Value: value.value,
+			})
+			valueSet.Add(value.name)
+		}
+	}
+	err := db.gormDB.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoNothing: true,
+	}).Create(rows).Error
+	return errors.Trace(err)
+}
+
 func (db *SQLDatabase) Get(ctx context.Context, name string) *ReturnValue {
 	rs, err := db.gormDB.WithContext(ctx).Table(db.ValuesTable()).Where("name = ?", name).Select("value").Rows()
 	if err != nil {

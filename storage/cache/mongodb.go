@@ -229,6 +229,22 @@ func (m MongoDB) Set(ctx context.Context, values ...Value) error {
 	return errors.Trace(err)
 }
 
+func (m MongoDB) Add(ctx context.Context, values ...Value) error {
+	if len(values) == 0 {
+		return nil
+	}
+	c := m.client.Database(m.dbName).Collection(m.ValuesTable())
+	var models []mongo.WriteModel
+	for _, value := range values {
+		models = append(models, mongo.NewUpdateOneModel().
+			SetUpsert(false).
+			SetFilter(bson.M{"_id": value.name}).
+			SetUpdate(bson.M{"$set": bson.M{"_id": value.name, "value": value.value}}))
+	}
+	_, err := c.BulkWrite(ctx, models)
+	return errors.Trace(err)
+}
+
 func (m MongoDB) Get(ctx context.Context, name string) *ReturnValue {
 	c := m.client.Database(m.dbName).Collection(m.ValuesTable())
 	r := c.FindOne(ctx, bson.M{"_id": bson.M{"$eq": name}})

@@ -1765,7 +1765,7 @@ func (s *RestServer) insertFeedback(overwrite bool) func(request *restful.Reques
 		for _, itemId := range items.List() {
 			values = append(values, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now()))
 		}
-		if err = s.CacheClient.Set(ctx, values...); err != nil {
+		if err = s.CacheClient.Add(ctx, values...); err != nil {
 			InternalServerError(response, err)
 			return
 		}
