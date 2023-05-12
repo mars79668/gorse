@@ -104,7 +104,7 @@ func (tp TablePrefix) SetsTable() string {
 }
 
 func (tp TablePrefix) SortedSetsTable(subTable string) string {
-	return string(tp) + "sorted_sets_" + subTable
+	return string(tp) + "sorted_set_" + subTable
 }
 
 func (tp TablePrefix) UsersTable() string {

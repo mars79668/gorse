@@ -467,6 +467,7 @@ func (w *Worker) Recommend(users []data.User) {
 
 	// progress tracker
 	completed := make(chan struct{}, 1000)
+	skiped := make(chan struct{}, 1000)
 	recommendTaskName := "Generate offline recommendation"
 	if !w.oneMode {
 		recommendTaskName += fmt.Sprintf(" [%s]", w.workerName)
@@ -481,6 +482,7 @@ func (w *Worker) Recommend(users []data.User) {
 	go func() {
 		defer base.CheckPanic()
 		completedCount, previousCount := 0, 0
+		skipedCount := 0
 		ticker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -489,6 +491,11 @@ func (w *Worker) Recommend(users []data.User) {
 					return
 				}
 				completedCount++
+			case _, ok := <-skiped:
+				if !ok {
+					return
+				}
+				skipedCount++
 			case <-ticker.C:
 				throughput := completedCount - previousCount
 				previousCount = completedCount
@@ -498,6 +505,7 @@ func (w *Worker) Recommend(users []data.User) {
 					}
 					log.Logger().Info("ranking recommendation",
 						zap.Int("n_complete_users", completedCount),
+						zap.Int("n_skiped_users", skipedCount),
 						zap.Int("n_working_users", len(users)),
 						zap.Int("throughput", throughput))
 				}
@@ -568,6 +576,7 @@ func (w *Worker) Recommend(users []data.User) {
 					}
 				}
 			}
+			skiped <- struct{}{}
 			//log.Logger().Debug("RecommendCache not Timeout", zap.String("user_id", userId), zap.Time("ActiveTime", user.ActiveTime))
 			return nil
 		}
@@ -624,7 +633,7 @@ func (w *Worker) Recommend(users []data.User) {
 				collaborativeUsed = true
 				collaborativeRecommendSeconds.Add(usedTime.Seconds())
 			} else if !w.RankingModel.IsUserPredictable(userIndex) {
-				log.Logger().Debug("user is unpredictable", zap.String("user_id", userId), zap.Time("ActiveTime", user.ActiveTime))
+				//log.Logger().Debug("user is unpredictable", zap.String("user_id", userId), zap.Time("ActiveTime", user.ActiveTime))
 			}
 		} else if w.RankingModel == nil || w.RankingModel.Invalid() {
 			log.Logger().Debug("no collaborative filtering model")
@@ -835,6 +844,7 @@ func (w *Worker) Recommend(users []data.User) {
 		return nil
 	})
 	close(completed)
+	close(skiped)
 	if err != nil {
 		log.Logger().Error("failed to continue offline recommendation", zap.Error(err))
 		return
@@ -1094,7 +1104,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	}
 
 	//用户长时间不活跃，不缓存
-	if activeTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
+	if activeTime.Before(time.Now().Add(-w.Config.Recommend.OfflineActiveExpire)) {
 		return false
 	}
 
@@ -1230,7 +1240,7 @@ func (w *Worker) pullUsers(peers []string, me string) ([]data.User, error) {
 	}
 	// pull users from database
 	var users []data.User
-	activeTime := time.Now().Add(-w.Config.Recommend.ActiveExpire)
+	activeTime := time.Now().Add(-w.Config.Recommend.OfflineActiveExpire)
 	userChan, errChan := w.DataClient.GetUserStream(ctx, batchSize, &activeTime)
 	for batchUsers := range userChan {
 		for _, user := range batchUsers {

@@ -106,16 +106,17 @@ type RecommendConfig struct {
 	PopularCacheSize int `mapstructure:"popular_cache_size" validate:"gt=0"`
 	LatestCacheSize  int `mapstructure:"latest_cache_size" validate:"gt=0"`
 
-	ActiveExpire  time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
-	CacheExpire   time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
-	DataSource    DataSourceConfig    `mapstructure:"data_source"`
-	Popular       PopularConfig       `mapstructure:"popular"`
-	UserNeighbors NeighborsConfig     `mapstructure:"user_neighbors"`
-	ItemNeighbors NeighborsConfig     `mapstructure:"item_neighbors"`
-	Collaborative CollaborativeConfig `mapstructure:"collaborative"`
-	Replacement   ReplacementConfig   `mapstructure:"replacement"`
-	Offline       OfflineConfig       `mapstructure:"offline"`
-	Online        OnlineConfig        `mapstructure:"online"`
+	OfflineActiveExpire time.Duration       `mapstructure:"offline_active_expire" validate:"gt=0"`
+	ActiveExpire        time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
+	CacheExpire         time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
+	DataSource          DataSourceConfig    `mapstructure:"data_source"`
+	Popular             PopularConfig       `mapstructure:"popular"`
+	UserNeighbors       NeighborsConfig     `mapstructure:"user_neighbors"`
+	ItemNeighbors       NeighborsConfig     `mapstructure:"item_neighbors"`
+	Collaborative       CollaborativeConfig `mapstructure:"collaborative"`
+	Replacement         ReplacementConfig   `mapstructure:"replacement"`
+	Offline             OfflineConfig       `mapstructure:"offline"`
+	Online              OnlineConfig        `mapstructure:"online"`
 }
 
 type DataSourceConfig struct {
@@ -199,13 +200,14 @@ func GetDefaultConfig() *Config {
 			CacheExpire:    10 * time.Second,
 		},
 		Recommend: RecommendConfig{
-			CacheSize:        100,
-			PopularCacheSize: 1000,
-			LatestCacheSize:  200,
-			ItemCacheSize:    60,
-			UserCacheSize:    10,
-			CacheExpire:      72 * time.Hour,
-			ActiveExpire:     72 * time.Hour,
+			CacheSize:           100,
+			PopularCacheSize:    1000,
+			LatestCacheSize:     200,
+			ItemCacheSize:       60,
+			UserCacheSize:       10,
+			CacheExpire:         72 * time.Hour,
+			ActiveExpire:        72 * time.Hour,
+			OfflineActiveExpire: 24 * time.Hour,
 			Popular: PopularConfig{
 				PopularWindow: 180 * 24 * time.Hour,
 			},

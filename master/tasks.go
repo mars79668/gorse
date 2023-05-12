@@ -610,8 +610,10 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 		zap.Int("n_cache", t.Config.Recommend.UserCacheSize))
 	// create progress tracker
 	completed := make(chan struct{}, 1000)
+	skiped := make(chan struct{}, 1000)
 	go func() {
 		completedCount, previousCount := 0, 0
+		skipedCount := 0
 		ticker := time.NewTicker(time.Second)
 		for {
 			select {
@@ -620,6 +622,11 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 					return
 				}
 				completedCount++
+			case _, ok := <-skiped:
+				if !ok {
+					return
+				}
+				skipedCount++
 			case <-ticker.C:
 				throughput := completedCount - previousCount
 				previousCount = completedCount
@@ -627,6 +634,7 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 					t.taskMonitor.Add(TaskFindUserNeighbors, throughput*dataset.UserCount())
 					log.Logger().Debug("searching neighbors of users",
 						zap.Int("n_complete_users", completedCount),
+						zap.Int("n_skipd_users", skipedCount),
 						zap.Int("n_users", dataset.UserCount()),
 						zap.Int("throughput", throughput))
 				}
@@ -676,13 +684,14 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 	start := time.Now()
 	var err error
 	if t.Config.Recommend.UserNeighbors.EnableIndex {
-		err = t.findUserNeighborsIVF(dataset, labelIDF, itemIDF, completed, j)
+		err = t.findUserNeighborsIVF(dataset, labelIDF, itemIDF, completed, skiped, j)
 	} else {
-		err = t.findUserNeighborsBruteForce(dataset, labeledUsers, labelIDF, itemIDF, completed, j)
+		err = t.findUserNeighborsBruteForce(dataset, labeledUsers, labelIDF, itemIDF, completed, skiped, j)
 	}
 	searchTime := time.Since(start)
 
 	close(completed)
+	close(skiped)
 	if err != nil {
 		log.Logger().Error("failed to searching neighbors of users", zap.Error(err))
 		t.taskMonitor.Fail(TaskFindUserNeighbors, err.Error())
@@ -702,7 +711,8 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 	return nil
 }
 
-func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUsers [][]int32, labelIDF, itemIDF []float32, completed chan struct{}, j *task.JobsAllocator) error {
+func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUsers [][]int32, labelIDF, itemIDF []float32,
+	completed chan struct{}, skiped chan struct{}, j *task.JobsAllocator) error {
 	var (
 		updateUserCount     atomic.Float64
 		findNeighborSeconds atomic.Float64
@@ -729,6 +739,7 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 		}()
 		userId := dataset.UserIndex.ToName(int32(userIndex))
 		if !m.checkUserNeighborCacheTimeout(userId) {
+			skiped <- struct{}{}
 			return nil
 		}
 		updateUserCount.Add(1)
@@ -773,7 +784,8 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 	return nil
 }
 
-func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemIDF []float32, completed chan struct{}, j *task.JobsAllocator) error {
+func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemIDF []float32,
+	completed chan struct{}, skiped chan struct{}, j *task.JobsAllocator) error {
 	var (
 		updateUserCount     atomic.Float64
 		buildIndexSeconds   atomic.Float64
@@ -822,6 +834,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 		}()
 		userId := dataset.UserIndex.ToName(int32(userIndex))
 		if !m.checkUserNeighborCacheTimeout(userId) {
+			skiped <- struct{}{}
 			return nil
 		}
 		updateUserCount.Add(1)
@@ -1378,7 +1391,8 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 	t.taskMonitor.Start(TaskCacheGarbageCollection, t.rankingTrainSet.UserCount()*9+t.rankingTrainSet.ItemCount()*4)
 	var scanCount, reclaimCount int
 	start := time.Now()
-	err := t.CacheClient.Scan(func(s string) error {
+
+	scanHandler := func(s string) error {
 		splits := strings.Split(s, "/")
 		if len(splits) <= 1 {
 			return nil
@@ -1441,7 +1455,8 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			reclaimCount++
 		}
 		return nil
-	})
+	}
+	err := t.CacheClient.Scan(scanHandler)
 	// remove stale hidden items
 	if err := t.CacheClient.RemSortedByScore(ctx, cache.HiddenItemsV2, cache.HiddenItemsV2,
 		math.Inf(-1), float64(time.Now().Add(-t.Config.Recommend.CacheExpire).Unix())); err != nil {
