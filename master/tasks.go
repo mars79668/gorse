@@ -92,7 +92,7 @@ func (m *Master) runLoadDatasetTask() error {
 			log.Logger().Error("failed to cache popular items", zap.Error(err))
 		}
 	}
-	if err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdatePopularItemsTime), time.Now())); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdatePopularItemsTime), time.Now())); err != nil {
 		log.Logger().Error("failed to write latest update popular items time", zap.Error(err))
 	}
 
@@ -111,39 +111,39 @@ func (m *Master) runLoadDatasetTask() error {
 			}
 		}
 	}
-	if err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateLatestItemsTime), time.Now())); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateLatestItemsTime), time.Now())); err != nil {
 		log.Logger().Error("failed to write latest update latest items time", zap.Error(err))
 	}
 
 	log.Logger().Debug("write statistics to database")
 	// write statistics to database
 	UsersTotal.Set(float64(rankingDataset.UserCount()))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUsers), rankingDataset.UserCount())); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUsers), rankingDataset.UserCount())); err != nil {
 		log.Logger().Error("failed to write number of users", zap.Error(err))
 	}
 	ItemsTotal.Set(float64(rankingDataset.ItemCount()))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItems), rankingDataset.ItemCount())); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItems), rankingDataset.ItemCount())); err != nil {
 		log.Logger().Error("failed to write number of items", zap.Error(err))
 	}
 	ImplicitFeedbacksTotal.Set(float64(rankingDataset.Count()))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumTotalPosFeedbacks), rankingDataset.Count())); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumTotalPosFeedbacks), rankingDataset.Count())); err != nil {
 		log.Logger().Error("failed to write number of positive feedbacks", zap.Error(err))
 	}
 	UserLabelsTotal.Set(float64(clickDataset.Index.CountUserLabels()))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUserLabels), int(clickDataset.Index.CountUserLabels()))); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUserLabels), int(clickDataset.Index.CountUserLabels()))); err != nil {
 		log.Logger().Error("failed to write number of user labels", zap.Error(err))
 	}
 	ItemLabelsTotal.Set(float64(clickDataset.Index.CountItemLabels()))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItemLabels), int(clickDataset.Index.CountItemLabels()))); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItemLabels), int(clickDataset.Index.CountItemLabels()))); err != nil {
 		log.Logger().Error("failed to write number of item labels", zap.Error(err))
 	}
 	ImplicitFeedbacksTotal.Set(float64(rankingDataset.Count()))
 	PositiveFeedbacksTotal.Set(float64(clickDataset.PositiveCount))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks), clickDataset.PositiveCount)); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks), clickDataset.PositiveCount)); err != nil {
 		log.Logger().Error("failed to write number of positive feedbacks", zap.Error(err))
 	}
 	NegativeFeedbackTotal.Set(float64(clickDataset.NegativeCount))
-	if err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks), clickDataset.NegativeCount)); err != nil {
+	if err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks), clickDataset.NegativeCount)); err != nil {
 		log.Logger().Error("failed to write number of negative feedbacks", zap.Error(err))
 	}
 
@@ -265,8 +265,10 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 		zap.Int("n_cache", t.Config.Recommend.ItemCacheSize))
 	// create progress tracker
 	completed := make(chan struct{}, 1000)
+	skiped := make(chan struct{}, 1000)
 	go func() {
 		completedCount, previousCount := 0, 0
+		skipedCount := 0
 		ticker := time.NewTicker(time.Second * 10)
 		for {
 			select {
@@ -275,6 +277,11 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 					return
 				}
 				completedCount++
+			case _, ok := <-skiped:
+				if !ok {
+					return
+				}
+				skipedCount++
 			case <-ticker.C:
 				throughput := completedCount - previousCount
 				previousCount = completedCount
@@ -282,6 +289,7 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 					t.taskMonitor.Add(TaskFindItemNeighbors, throughput*dataset.ItemCount())
 					log.Logger().Debug("searching neighbors of items",
 						zap.Int("n_complete_items", completedCount),
+						zap.Int("n_skipd_items", skipedCount),
 						zap.Int("n_items", dataset.ItemCount()),
 						zap.Int("throughput", throughput/10))
 				}
@@ -331,19 +339,20 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 	start := time.Now()
 	var err error
 	if t.Config.Recommend.ItemNeighbors.EnableIndex {
-		err = t.findItemNeighborsIVF(dataset, labelIDF, userIDF, completed, j)
+		err = t.findItemNeighborsIVF(dataset, labelIDF, userIDF, completed, skiped, j)
 	} else {
-		err = t.findItemNeighborsBruteForce(dataset, labeledItems, labelIDF, userIDF, completed, j)
+		err = t.findItemNeighborsBruteForce(dataset, labeledItems, labelIDF, userIDF, completed, skiped, j)
 	}
 	searchTime := time.Since(start)
 
 	close(completed)
+	close(skiped)
 	if err != nil {
 		log.Logger().Error("failed to searching neighbors of items", zap.Error(err))
 		t.taskMonitor.Fail(TaskFindItemNeighbors, err.Error())
 		FindItemNeighborsTotalSeconds.Set(0)
 	} else {
-		if err := t.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateItemNeighborsTime), time.Now())); err != nil {
+		if err := t.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateItemNeighborsTime), time.Now())); err != nil {
 			log.Logger().Error("failed to set neighbors of items update time", zap.Error(err))
 		}
 		log.Logger().Info("complete searching neighbors of items",
@@ -358,7 +367,7 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 }
 
 func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledItems [][]int32,
-	labelIDF, userIDF []float32, completed chan struct{}, j *task.JobsAllocator) error {
+	labelIDF, userIDF []float32, completed chan struct{}, skiped chan struct{}, j *task.JobsAllocator) error {
 	ctx := context.Background()
 	var (
 		updateItemCount     atomic.Float64
@@ -387,6 +396,7 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
 			//log.Logger().Debug("ItemNeighborCache NOT Timeout",
 			//	zap.String("item", itemId))
+			skiped <- struct{}{}
 			return nil
 		}
 
@@ -424,7 +434,7 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 				return errors.Trace(err)
 			}
 		}
-		if err := m.CacheClient.Set(
+		if err := m.FastCacheClient.Set(
 			ctx,
 			cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, itemId), time.Now()),
 			cache.String(cache.Key(cache.ItemNeighborsDigest, itemId), m.Config.ItemNeighborDigest())); err != nil {
@@ -443,7 +453,8 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 	return nil
 }
 
-func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userIDF []float32, completed chan struct{}, j *task.JobsAllocator) error {
+func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userIDF []float32,
+	completed chan struct{}, skiped chan struct{}, j *task.JobsAllocator) error {
 	var (
 		updateItemCount     atomic.Float64
 		findNeighborSeconds atomic.Float64
@@ -480,7 +491,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		true,
 		m.taskMonitor.GetTask(TaskFindItemNeighbors))
 	ItemNeighborIndexRecall.Set(float64(recall))
-	if err := m.CacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.ItemNeighborIndexRecall), encoding.FormatFloat32(recall))); err != nil {
+	if err := m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.ItemNeighborIndexRecall), encoding.FormatFloat32(recall))); err != nil {
 		return errors.Trace(err)
 	}
 	buildIndexSeconds.Add(time.Since(buildStart).Seconds())
@@ -493,6 +504,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
 			//log.Logger().Debug("ItemNeighborCache NOT Timeout",
 			//	zap.String("item", itemId))
+			skiped <- struct{}{}
 			return nil
 		}
 		//log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
@@ -523,7 +535,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 				}
 			}
 		}
-		if err := m.CacheClient.Set(
+		if err := m.FastCacheClient.Set(
 			ctx,
 			cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, itemId), time.Now()),
 			cache.String(cache.Key(cache.ItemNeighborsDigest, itemId), m.Config.ItemNeighborDigest())); err != nil {
@@ -676,7 +688,7 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 		t.taskMonitor.Fail(TaskFindUserNeighbors, err.Error())
 		FindUserNeighborsTotalSeconds.Set(0)
 	} else {
-		if err := t.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateUserNeighborsTime), time.Now())); err != nil {
+		if err := t.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastUpdateUserNeighborsTime), time.Now())); err != nil {
 			log.Logger().Error("failed to set neighbors of users update time", zap.Error(err))
 		}
 		log.Logger().Info("complete searching neighbors of users",
@@ -742,7 +754,7 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 			cache.CreateScoredItems(recommends, scores)); err != nil {
 			return errors.Trace(err)
 		}
-		if err := m.CacheClient.Set(
+		if err := m.FastCacheClient.Set(
 			ctx,
 			cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, userId), time.Now()),
 			cache.String(cache.Key(cache.UserNeighborsDigest, userId), m.Config.UserNeighborDigest())); err != nil {
@@ -799,7 +811,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 		true,
 		m.taskMonitor.GetTask(TaskFindUserNeighbors))
 	UserNeighborIndexRecall.Set(float64(recall))
-	if err := m.CacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.UserNeighborIndexRecall), encoding.FormatFloat32(recall))); err != nil {
+	if err := m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.UserNeighborIndexRecall), encoding.FormatFloat32(recall))); err != nil {
 		return errors.Trace(err)
 	}
 	buildIndexSeconds.Add(time.Since(buildStart).Seconds())
@@ -825,7 +837,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 		if err := m.CacheClient.SetSorted(ctx, cache.UserNeighbors, userId, itemScores); err != nil {
 			return errors.Trace(err)
 		}
-		if err := m.CacheClient.Set(
+		if err := m.FastCacheClient.Set(
 			ctx,
 			cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, userId), time.Now()),
 			cache.String(cache.Key(cache.UserNeighborsDigest, userId), m.Config.UserNeighborDigest())); err != nil {
@@ -880,17 +892,17 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	)
 	ctx := context.Background()
 	// read modified time
-	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	modifiedTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
 		}
-		m.CacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
+		m.FastCacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
 		return true
 	}
 
 	// read digest
-	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, userId)).String()
+	cacheDigest, err = m.FastCacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, userId)).String()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read user neighbors digest", zap.Error(err))
@@ -902,7 +914,7 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	}
 
 	// read update time
-	updateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, userId)).Time()
+	updateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, userId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last update user neighbors time", zap.Error(err))
@@ -939,37 +951,45 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	ctx := context.Background()
 
 	// read modified time
-	modifiedTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, itemId)).Time()
+	modifiedTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, itemId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify item time", zap.Error(err))
 		}
-		m.CacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now()))
+
+		log.Logger().Error("no modify time timeout", zap.String("item", itemId))
+		m.FastCacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now()))
 		return true
 	}
 
 	// read digest
-	cacheDigest, err = m.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
+	cacheDigest, err = m.FastCacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read item neighbors digest", zap.Error(err))
 		}
+		log.Logger().Error("no cache digest timeout", zap.String("item", itemId))
 		return true
 	}
 	if cacheDigest != m.Config.ItemNeighborDigest() {
+		log.Logger().Error("cache digest changed", zap.String("item", itemId))
 		return true
 	}
 
 	// read update time
-	updateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, itemId)).Time()
+	updateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, itemId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last update item neighbors time", zap.Error(err))
 		}
+		log.Logger().Error("no update time timeout", zap.String("item", itemId))
 		return true
 	}
 	// check cache expire
 	if updateTime.Before(time.Now().Add(-m.Config.Recommend.CacheExpire)) {
+		log.Logger().Error("update time timeout", zap.String("item", itemId),
+			zap.Duration("CacheExpire", m.Config.Recommend.CacheExpire),
+			zap.Time("update", updateTime))
 		return true
 	}
 
@@ -985,7 +1005,11 @@ func (m *Master) checkItemNeighborCacheTimeout(itemId string, categories []strin
 	// }
 
 	// check time
-	return updateTime.Unix() <= modifiedTime.Unix()
+	if updateTime.Unix() < modifiedTime.Unix() {
+		log.Logger().Error("modify time changed", zap.String("item", itemId),
+			zap.Time("update", updateTime), zap.Time("modified", modifiedTime))
+	}
+	return updateTime.Unix() < modifiedTime.Unix()
 }
 
 type FitRankingModelTask struct {
@@ -1059,7 +1083,7 @@ func (t *FitRankingModelTask) run(j *task.JobsAllocator) error {
 	CollaborativeFilteringRecall10.Set(float64(score.Recall))
 	CollaborativeFilteringPrecision10.Set(float64(score.Precision))
 	MemoryInUseBytesVec.WithLabelValues("collaborative_filtering_model").Set(float64(t.RankingModel.Bytes()))
-	if err := t.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastFitMatchingModelTime), time.Now())); err != nil {
+	if err := t.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastFitMatchingModelTime), time.Now())); err != nil {
 		log.Logger().Error("failed to write meta", zap.Error(err))
 	}
 
@@ -1173,7 +1197,7 @@ func (t *FitClickModelTask) run(j *task.JobsAllocator) error {
 	RankingRecall.Set(float64(score.Recall))
 	RankingAUC.Set(float64(score.AUC))
 	MemoryInUseBytesVec.WithLabelValues("ranking_model").Set(float64(t.ClickModel.Bytes()))
-	if err := t.CacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastFitRankingModelTime), time.Now())); err != nil {
+	if err := t.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.GlobalMeta, cache.LastFitRankingModelTime), time.Now())); err != nil {
 		log.Logger().Error("failed to write meta", zap.Error(err))
 	}
 
@@ -1384,7 +1408,7 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 				err = t.CacheClient.SetSorted(ctx, splits[0], s, nil)
 			case cache.UserNeighborsDigest, cache.OfflineRecommendDigest,
 				cache.LastModifyUserTime, cache.LastUpdateUserNeighborsTime, cache.LastUpdateUserRecommendTime:
-				err = t.CacheClient.Delete(ctx, s)
+				err = t.FastCacheClient.Delete(ctx, s)
 			}
 			if err != nil {
 				return errors.Trace(err)
@@ -1409,7 +1433,7 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			case cache.ItemNeighbors:
 				err = t.CacheClient.SetSorted(ctx, cache.ItemNeighbors, s, nil)
 			case cache.ItemNeighborsDigest, cache.LastModifyItemTime, cache.LastUpdateItemNeighborsTime:
-				err = t.CacheClient.Delete(ctx, s)
+				err = t.FastCacheClient.Delete(ctx, s)
 			}
 			if err != nil {
 				return errors.Trace(err)

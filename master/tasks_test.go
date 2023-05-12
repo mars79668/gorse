@@ -105,7 +105,7 @@ func TestMaster_FindItemNeighborsBruteForce(t *testing.T) {
 	assert.Equal(t, []string{"7", "5", "1"}, cache.RemoveScores(similar))
 
 	// similar items (common labels)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
@@ -121,9 +121,9 @@ func TestMaster_FindItemNeighborsBruteForce(t *testing.T) {
 	assert.Equal(t, []string{"0", "2", "6"}, cache.RemoveScores(similar))
 
 	// similar items (auto)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "9"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "9"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
@@ -218,7 +218,7 @@ func TestMaster_FindItemNeighborsIVF(t *testing.T) {
 	assert.Equal(t, []string{"7", "5", "1"}, cache.RemoveScores(similar))
 
 	// similar items (common labels)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
@@ -234,9 +234,9 @@ func TestMaster_FindItemNeighborsIVF(t *testing.T) {
 	assert.Equal(t, []string{"0", "2", "6"}, cache.RemoveScores(similar))
 
 	// similar items (auto)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "9"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "9"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.ItemNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindItemNeighborsTask(&m.Master)
@@ -353,7 +353,7 @@ func TestMaster_FindUserNeighborsBruteForce(t *testing.T) {
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindUserNeighbors].Status)
 
 	// similar items (common labels)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
@@ -365,9 +365,9 @@ func TestMaster_FindUserNeighborsBruteForce(t *testing.T) {
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindUserNeighbors].Status)
 
 	// similar items (auto)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "9"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "9"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
@@ -442,7 +442,7 @@ func TestMaster_FindUserNeighborsIVF(t *testing.T) {
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindUserNeighbors].Status)
 
 	// similar items (common labels)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeSimilar
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
@@ -454,9 +454,9 @@ func TestMaster_FindUserNeighborsIVF(t *testing.T) {
 	assert.Equal(t, task.StatusComplete, m.taskMonitor.Tasks[TaskFindUserNeighbors].Status)
 
 	// similar items (auto)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "9"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "9"), time.Now()))
 	assert.NoError(t, err)
 	m.Config.Recommend.UserNeighbors.NeighborType = config.NeighborTypeAuto
 	neighborTask = NewFindUserNeighborsTask(&m.Master)
@@ -667,23 +667,23 @@ func TestCheckItemNeighborCacheTimeout(t *testing.T) {
 	assert.NoError(t, err)
 
 	// digest mismatch
-	err = m.CacheClient.Set(ctx, cache.String(cache.Key(cache.ItemNeighborsDigest, "1"), "digest"))
+	err = m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.ItemNeighborsDigest, "1"), "digest"))
 	assert.NoError(t, err)
 	assert.True(t, m.checkItemNeighborCacheTimeout("1", nil))
 
 	// staled cache
-	err = m.CacheClient.Set(ctx, cache.String(cache.Key(cache.ItemNeighborsDigest, "1"), m.Config.ItemNeighborDigest()))
+	err = m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.ItemNeighborsDigest, "1"), m.Config.ItemNeighborDigest()))
 	assert.NoError(t, err)
 	assert.True(t, m.checkItemNeighborCacheTimeout("1", nil))
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "1"), time.Now().Add(-time.Minute)))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "1"), time.Now().Add(-time.Minute)))
 	assert.NoError(t, err)
 	assert.True(t, m.checkItemNeighborCacheTimeout("1", nil))
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "1"), time.Now().Add(-time.Hour)))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "1"), time.Now().Add(-time.Hour)))
 	assert.NoError(t, err)
 	assert.True(t, m.checkItemNeighborCacheTimeout("1", nil))
 
 	// not staled cache
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "1"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "1"), time.Now()))
 	assert.NoError(t, err)
 	assert.False(t, m.checkItemNeighborCacheTimeout("1", nil))
 }
@@ -705,23 +705,23 @@ func TestCheckUserNeighborCacheTimeout(t *testing.T) {
 	assert.NoError(t, err)
 
 	// digest mismatch
-	err = m.CacheClient.Set(ctx, cache.String(cache.Key(cache.UserNeighborsDigest, "1"), "digest"))
+	err = m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.UserNeighborsDigest, "1"), "digest"))
 	assert.NoError(t, err)
 	assert.True(t, m.checkUserNeighborCacheTimeout("1"))
 
 	// staled cache
-	err = m.CacheClient.Set(ctx, cache.String(cache.Key(cache.UserNeighborsDigest, "1"), m.Config.UserNeighborDigest()))
+	err = m.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.UserNeighborsDigest, "1"), m.Config.UserNeighborDigest()))
 	assert.NoError(t, err)
 	assert.True(t, m.checkUserNeighborCacheTimeout("1"))
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "1"), time.Now().Add(-time.Minute)))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "1"), time.Now().Add(-time.Minute)))
 	assert.NoError(t, err)
 	assert.True(t, m.checkUserNeighborCacheTimeout("1"))
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, "1"), time.Now().Add(-time.Hour)))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, "1"), time.Now().Add(-time.Hour)))
 	assert.NoError(t, err)
 	assert.True(t, m.checkUserNeighborCacheTimeout("1"))
 
 	// not staled cache
-	err = m.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, "1"), time.Now()))
+	err = m.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserNeighborsTime, "1"), time.Now()))
 	assert.NoError(t, err)
 	assert.False(t, m.checkUserNeighborCacheTimeout("1"))
 }
@@ -741,7 +741,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 
 	// insert cache
 	timestamp := time.Now()
-	err = m.CacheClient.Set(ctx,
+	err = m.FastCacheClient.Set(ctx,
 		cache.String(cache.Key(cache.UserNeighborsDigest, "1"), "digest"),
 		cache.String(cache.Key(cache.OfflineRecommendDigest, "1"), "digest"),
 		cache.Time(cache.Key(cache.LastModifyUserTime, "1"), timestamp),
@@ -755,7 +755,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.NoError(t, err)
 	err = m.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "1", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx,
+	err = m.FastCacheClient.Set(ctx,
 		cache.String(cache.Key(cache.ItemNeighborsDigest, "10"), "digest"),
 		cache.Time(cache.Key(cache.LastModifyItemTime, "10"), timestamp),
 		cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "10"), timestamp),
@@ -764,7 +764,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	err = m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, "10", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
 
-	err = m.CacheClient.Set(ctx,
+	err = m.FastCacheClient.Set(ctx,
 		cache.String(cache.Key(cache.UserNeighborsDigest, "2"), "digest"),
 		cache.String(cache.Key(cache.OfflineRecommendDigest, "2"), "digest"),
 		cache.Time(cache.Key(cache.LastModifyUserTime, "2"), timestamp),
@@ -778,7 +778,7 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.NoError(t, err)
 	err = m.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "2", []cache.Scored{{Id: "1", Score: 1}})
 	assert.NoError(t, err)
-	err = m.CacheClient.Set(ctx,
+	err = m.FastCacheClient.Set(ctx,
 		cache.String(cache.Key(cache.ItemNeighborsDigest, "20"), "digest"),
 		cache.Time(cache.Key(cache.LastModifyItemTime, "20"), timestamp),
 		cache.Time(cache.Key(cache.LastUpdateItemNeighborsTime, "20"), timestamp),
@@ -794,20 +794,20 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.NoError(t, err)
 
 	var s string
-	s, err = m.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, "1")).String()
+	s, err = m.FastCacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, "1")).String()
 	assert.NoError(t, err)
 	assert.Equal(t, "digest", s)
-	s, err = m.CacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, "1")).String()
+	s, err = m.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, "1")).String()
 	assert.NoError(t, err)
 	assert.Equal(t, "digest", s)
 	var ts time.Time
-	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, "1")).Time()
+	ts, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, "1")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
-	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, "1")).Time()
+	ts, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, "1")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
-	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "1")).Time()
+	ts, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "1")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
 	sorted, err := m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "1", 0, -1)
@@ -820,28 +820,28 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
 
-	s, err = m.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, "10")).String()
+	s, err = m.FastCacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, "10")).String()
 	assert.NoError(t, err)
 	assert.Equal(t, "digest", s)
-	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, "10")).Time()
+	ts, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, "10")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
-	ts, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "10")).Time()
+	ts, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "10")).Time()
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Truncate(time.Second), ts.Truncate(time.Second))
 	sorted, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "10", 0, -1)
 	assert.NoError(t, err)
 	assert.Equal(t, []cache.Scored{{Id: "1", Score: 1}}, sorted)
 
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, "2")).String()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, "2")).String()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, "2")).String()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, "2")).String()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, "2")).Time()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, "2")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, "2")).Time()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserNeighborsTime, "2")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "2")).Time()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, "2")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
 	sorted, err = m.CacheClient.GetSorted(ctx, cache.UserNeighbors, "2", 0, -1)
 	assert.NoError(t, err)
@@ -853,11 +853,11 @@ func TestRunCacheGarbageCollectionTask(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, sorted)
 
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, "20")).String()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, "20")).String()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, "20")).Time()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyItemTime, "20")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
-	_, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "20")).Time()
+	_, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateItemNeighborsTime, "20")).Time()
 	assert.True(t, errors.Is(err, errors.NotFound))
 	sorted, err = m.CacheClient.GetSorted(ctx, cache.ItemNeighbors, "20", 0, -1)
 	assert.NoError(t, err)

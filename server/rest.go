@@ -1222,7 +1222,7 @@ func (s *RestServer) insertUser(request *restful.Request, response *restful.Resp
 		return
 	}
 	// insert modify timestamp
-	if err := s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, temp.UserId), time.Now())); err != nil {
+	if err := s.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, temp.UserId), time.Now())); err != nil {
 		InternalServerError(response, err)
 		return
 	}
@@ -1247,7 +1247,7 @@ func (s *RestServer) modifyUser(request *restful.Request, response *restful.Resp
 		return
 	}
 	// insert modify timestamp
-	if err := s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now())); err != nil {
+	if err := s.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now())); err != nil {
 		return
 	}
 	Ok(response, Success{RowAffected: 1})
@@ -1298,7 +1298,7 @@ func (s *RestServer) insertUsers(request *restful.Request, response *restful.Res
 	for i, user := range temp {
 		values[i] = cache.Time(cache.Key(cache.LastModifyUserTime, user.UserId), time.Now())
 	}
-	if err := s.CacheClient.Set(ctx, values...); err != nil {
+	if err := s.FastCacheClient.Set(ctx, values...); err != nil {
 		InternalServerError(response, err)
 		return
 	}
@@ -1466,7 +1466,7 @@ func (s *RestServer) batchInsertItems(ctx context.Context, response *restful.Res
 		values[i] = cache.Time(cache.Key(cache.LastModifyItemTime, item.ItemId), time.Now())
 		categories.Add(item.Categories...)
 	}
-	if err = s.CacheClient.Set(ctx, values...); err != nil {
+	if err = s.FastCacheClient.Set(ctx, values...); err != nil {
 		InternalServerError(response, err)
 		return
 	}
@@ -1556,7 +1556,7 @@ func (s *RestServer) modifyItem(request *restful.Request, response *restful.Resp
 		return
 	}
 	// insert modify timestamp
-	if err := s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now())); err != nil {
+	if err := s.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now())); err != nil {
 		return
 	}
 	// refresh cache
@@ -1765,7 +1765,7 @@ func (s *RestServer) insertFeedback(overwrite bool) func(request *restful.Reques
 		for _, itemId := range items.List() {
 			values = append(values, cache.Time(cache.Key(cache.LastModifyItemTime, itemId), time.Now()))
 		}
-		if err = s.CacheClient.Add(ctx, values...); err != nil {
+		if err = s.FastCacheClient.Add(ctx, values...); err != nil {
 			InternalServerError(response, err)
 			return
 		}

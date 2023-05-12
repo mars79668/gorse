@@ -171,6 +171,12 @@ func (s *Server) Sync() {
 				fmt.Printf("failed to connect cache store:%v", err)
 				goto sleep
 			}
+
+			if s.FastCacheClient, err = cache.Open(s.Config.Database.FastCacheStore, s.Config.Database.CacheTablePrefix); err != nil {
+				log.Logger().Error("failed to connect fast cache store", zap.Error(err))
+				fmt.Printf("failed to connect fast cache store:%v", err)
+				goto sleep
+			}
 			log.Logger().Info("connect cache store ok",
 				zap.String("database", log.RedactDBURL(s.Config.Database.CacheStore)))
 			s.cachePath = s.Config.Database.CacheStore

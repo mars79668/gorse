@@ -69,6 +69,8 @@ func newMockServer(t *testing.T) (*mockServer, string) {
 	assert.NoError(t, err)
 	s.CacheClient, err = cache.Open("redis://"+s.cacheStoreServer.Addr(), "")
 	assert.NoError(t, err)
+
+	s.FastCacheClient = s.CacheClient
 	// create server
 	s.Config = config.GetDefaultConfig()
 	s.Config.Master.DashboardUserName = mockMasterUsername
@@ -441,13 +443,13 @@ func TestMaster_GetStats(t *testing.T) {
 	// set stats
 	s.rankingScore = ranking.Score{Precision: 0.1}
 	s.clickScore = click.Score{Precision: 0.2}
-	err := s.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUsers), 123))
+	err := s.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumUsers), 123))
 	assert.NoError(t, err)
-	err = s.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItems), 234))
+	err = s.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumItems), 234))
 	assert.NoError(t, err)
-	err = s.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks), 345))
+	err = s.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks), 345))
 	assert.NoError(t, err)
-	err = s.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks), 456))
+	err = s.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks), 456))
 	assert.NoError(t, err)
 	// get stats
 	apitest.New().
@@ -544,9 +546,9 @@ func TestMaster_GetUsers(t *testing.T) {
 	for _, user := range users {
 		err := s.DataClient.BatchInsertUsers(ctx, []data.User{user.User})
 		assert.NoError(t, err)
-		err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, user.UserId), user.LastActiveTime))
+		err = s.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, user.UserId), user.LastActiveTime))
 		assert.NoError(t, err)
-		err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, user.UserId), user.LastUpdateTime))
+		err = s.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, user.UserId), user.LastUpdateTime))
 		assert.NoError(t, err)
 	}
 	// get users
@@ -751,9 +753,9 @@ func TestMaster_Purge(t *testing.T) {
 
 	ctx := context.Background()
 	// insert data
-	err := s.CacheClient.Set(ctx, cache.String("key", "value"))
+	err := s.FastCacheClient.Set(ctx, cache.String("key", "value"))
 	assert.NoError(t, err)
-	ret, err := s.CacheClient.Get(ctx, "key").String()
+	ret, err := s.FastCacheClient.Get(ctx, "key").String()
 	assert.NoError(t, err)
 	assert.Equal(t, "value", ret)
 
@@ -796,7 +798,7 @@ func TestMaster_Purge(t *testing.T) {
 	s.purge(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	_, err = s.CacheClient.Get(ctx, "key").String()
+	_, err = s.FastCacheClient.Get(ctx, "key").String()
 	assert.ErrorIs(t, err, errors.NotFound)
 	set, err = s.CacheClient.GetSet(ctx, "set")
 	assert.NoError(t, err)

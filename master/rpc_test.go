@@ -17,6 +17,10 @@ package master
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/zhenghaoz/gorse/base/task"
@@ -30,9 +34,6 @@ import (
 	"github.com/zhenghaoz/gorse/storage/data"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
-	"testing"
-	"time"
 )
 
 type mockMasterRPC struct {
@@ -59,6 +60,7 @@ func newMockMasterRPC(_ *testing.T) *mockMasterRPC {
 				Settings: &config.Settings{
 					Config:              config.GetDefaultConfig(),
 					CacheClient:         cache.NoDatabase{},
+					FastCacheClient:     cache.NoDatabase{},
 					DataClient:          data.NoDatabase{},
 					RankingModel:        bpr,
 					ClickModel:          fm,

@@ -25,8 +25,9 @@ type Settings struct {
 	Config *Config
 
 	// database clients
-	CacheClient cache.Database
-	DataClient  data.Database
+	CacheClient     cache.Database
+	FastCacheClient cache.Database
+	DataClient      data.Database
 
 	// recommendation models
 	RankingModel        ranking.MatrixFactorization
@@ -37,8 +38,9 @@ type Settings struct {
 
 func NewSettings() *Settings {
 	return &Settings{
-		Config:      GetDefaultConfig(),
-		CacheClient: cache.NoDatabase{},
-		DataClient:  data.NoDatabase{},
+		Config:          GetDefaultConfig(),
+		FastCacheClient: cache.NoDatabase{},
+		CacheClient:     cache.NoDatabase{},
+		DataClient:      data.NoDatabase{},
 	}
 }

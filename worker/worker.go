@@ -188,6 +188,14 @@ func (w *Worker) Sync() {
 				log.Logger().Error("failed to connect cache store", zap.Error(err))
 				goto sleep
 			}
+
+			log.Logger().Info("connect fast cache store",
+				zap.String("database", log.RedactDBURL(w.Config.Database.FastCacheStore)))
+			if w.FastCacheClient, err = cache.Open(w.Config.Database.FastCacheStore, w.Config.Database.CacheTablePrefix); err != nil {
+				log.Logger().Error("failed to connect fast cache store", zap.Error(err))
+				goto sleep
+			}
+
 			w.cachePath = w.Config.Database.CacheStore
 			w.cachePrefix = w.Config.Database.CacheTablePrefix
 		}
@@ -520,7 +528,7 @@ func (w *Worker) Recommend(users []data.User) {
 			w.rankingIndex, recall = builder.Build(w.Config.Recommend.Collaborative.IndexRecall,
 				w.Config.Recommend.Collaborative.IndexFitEpoch, false, recommendTask)
 			CollaborativeFilteringIndexRecall.Set(float64(recall))
-			if err = w.CacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.MatchingIndexRecall), encoding.FormatFloat32(recall))); err != nil {
+			if err = w.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.GlobalMeta, cache.MatchingIndexRecall), encoding.FormatFloat32(recall))); err != nil {
 				log.Logger().Error("failed to write meta", zap.Error(err))
 			}
 			log.Logger().Info("complete building ranking index",
@@ -643,7 +651,7 @@ func (w *Worker) Recommend(users []data.User) {
 						}
 					}
 					// load item neighbors digest
-					digest, err := w.CacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
+					digest, err := w.FastCacheClient.Get(ctx, cache.Key(cache.ItemNeighborsDigest, itemId)).String()
 					if err != nil {
 						if !errors.Is(err, errors.NotFound) {
 							log.Logger().Error("failed to load item neighbors digest", zap.Error(err))
@@ -690,7 +698,7 @@ func (w *Worker) Recommend(users []data.User) {
 					}
 				}
 				// load user neighbors digest
-				digest, err := w.CacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, user.Id)).String()
+				digest, err := w.FastCacheClient.Get(ctx, cache.Key(cache.UserNeighborsDigest, user.Id)).String()
 				if err != nil {
 					if !errors.Is(err, errors.NotFound) {
 						log.Logger().Error("failed to load user neighbors digest", zap.Error(err))
@@ -806,7 +814,7 @@ func (w *Worker) Recommend(users []data.User) {
 			}
 		}
 		recommendTime := time.Now()
-		if err = w.CacheClient.Set(
+		if err = w.FastCacheClient.Set(
 			ctx,
 			cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, userId), recommendTime),
 			cache.String(cache.Key(cache.OfflineRecommendDigest, userId), w.Config.OfflineRecommendDigest(
@@ -1070,7 +1078,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	userId := user.UserId
 
 	// read active time
-	activeTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	activeTime, err = w.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
@@ -1091,7 +1099,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	}
 
 	// read digest
-	cacheDigest, err = w.CacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
+	cacheDigest, err = w.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to load offline recommendation digest", zap.String("user_id", userId), zap.Error(err))
@@ -1103,7 +1111,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	}
 
 	// read recommend time
-	recommendTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
+	recommendTime, err = w.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last update user recommend time", zap.Error(err))
@@ -1115,12 +1123,12 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		return true
 	}
 
-	modifiedTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	modifiedTime, err = w.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
 		}
-		w.CacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
+		w.FastCacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
 		return true
 	}
 

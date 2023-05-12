@@ -65,6 +65,7 @@ func (suite *WorkerTestSuite) SetupSuite() {
 	suite.DataClient, err = data.Open("redis://"+suite.dataStoreServer.Addr(), "")
 	suite.NoError(err)
 	suite.CacheClient, err = cache.Open("redis://"+suite.cacheStoreServer.Addr(), "")
+	suite.FastCacheClient = suite.CacheClient
 	suite.NoError(err)
 }
 
@@ -124,16 +125,16 @@ func (suite *WorkerTestSuite) TestCheckRecommendCacheTimeout() {
 
 	// digest mismatch
 	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
-	err = suite.CacheClient.Set(ctx, cache.String(cache.Key(cache.OfflineRecommendDigest, "0"), suite.Config.OfflineRecommendDigest()))
+	err = suite.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.OfflineRecommendDigest, "0"), suite.Config.OfflineRecommendDigest()))
 	suite.NoError(err)
 
-	err = suite.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "0"), time.Now().Add(-time.Hour)))
+	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "0"), time.Now().Add(-time.Hour)))
 	suite.NoError(err)
 	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
-	err = suite.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(-time.Hour*100)))
+	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(-time.Hour*100)))
 	suite.NoError(err)
 	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
-	err = suite.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(time.Hour*100)))
+	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(time.Hour*100)))
 	suite.NoError(err)
 	suite.False(suite.checkRecommendCacheTimeout(ctx, "0", nil))
 	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", nil)
@@ -836,7 +837,7 @@ func (suite *WorkerTestSuite) TestReplacement_ClickThroughRate() {
 	suite.Equal([]cache.Scored{{"10", 10}, {"9", 9}}, recommends)
 
 	// 2. Insert historical items into non-empty recommendation.
-	err = suite.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().AddDate(-1, 0, 0)))
+	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().AddDate(-1, 0, 0)))
 	suite.NoError(err)
 	// insert popular items
 	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "", []cache.Scored{{"7", 10}, {"6", 9}, {"5", 8}})
@@ -882,7 +883,7 @@ func (suite *WorkerTestSuite) TestReplacement_CollaborativeFiltering() {
 	suite.Equal([]cache.Scored{{"10", 10}, {"9", 9}}, recommends)
 
 	// 2. Insert historical items into non-empty recommendation.
-	err = suite.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().AddDate(-1, 0, 0)))
+	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().AddDate(-1, 0, 0)))
 	suite.NoError(err)
 	// insert popular items
 	err = suite.CacheClient.SetSorted(ctx, cache.PopularItems, "", []cache.Scored{{"7", 10}, {"6", 9}, {"5", 8}})

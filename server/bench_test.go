@@ -103,6 +103,9 @@ func newBenchServer(b *testing.B) *benchServer {
 	require.NoError(b, err)
 	s.CacheClient, err = cache.Open(cacheStoreURL, "")
 	require.NoError(b, err)
+
+	s.FastCacheClient = s.CacheClient
+
 	err = s.CacheClient.Init()
 	require.NoError(b, err)
 

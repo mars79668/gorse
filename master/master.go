@@ -140,11 +140,12 @@ func NewMaster(cfg *config.Config, cacheFile string, managedMode bool) *Master {
 		),
 		RestServer: server.RestServer{
 			Settings: &config.Settings{
-				Config:       cfg,
-				CacheClient:  cache.NoDatabase{},
-				DataClient:   data.NoDatabase{},
-				RankingModel: ranking.NewBPR(nil),
-				ClickModel:   click.NewFM(click.FMClassification, nil),
+				Config:          cfg,
+				CacheClient:     cache.NoDatabase{},
+				FastCacheClient: cache.NoDatabase{},
+				DataClient:      data.NoDatabase{},
+				RankingModel:    ranking.NewBPR(nil),
+				ClickModel:      click.NewFM(click.FMClassification, nil),
 				// init versions
 				RankingModelVersion: rand.Int63(),
 				ClickModelVersion:   rand.Int63(),
@@ -239,6 +240,20 @@ func (m *Master) Serve() {
 
 	log.Logger().Info("connect cache store ok",
 		zap.String("database", log.RedactDBURL(m.Config.Database.CacheStore)))
+
+	log.Logger().Info("connect fast cache store",
+		zap.String("database", log.RedactDBURL(m.Config.Database.FastCacheStore)))
+	m.FastCacheClient, err = cache.Open(m.Config.Database.FastCacheStore, m.Config.Database.CacheTablePrefix)
+	if err != nil {
+		log.Logger().Fatal("failed to connect cache database", zap.Error(err),
+			zap.String("database", log.RedactDBURL(m.Config.Database.FastCacheStore)))
+	}
+	if err = m.FastCacheClient.Init(); err != nil {
+		log.Logger().Fatal("failed to init database", zap.Error(err))
+	}
+
+	log.Logger().Info("connect fast cache store ok",
+		zap.String("database", log.RedactDBURL(m.Config.Database.FastCacheStore)))
 
 	m.RestServer.HiddenItemsManager = server.NewHiddenItemsManager(&m.RestServer)
 	m.RestServer.PopularItemsCache = server.NewPopularItemsCache(&m.RestServer)
@@ -473,7 +488,7 @@ func (m *Master) RunManagedTasksLoop() {
 
 func (m *Master) checkDataImported() bool {
 	ctx := context.Background()
-	isDataImported, err := m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.DataImported)).Integer()
+	isDataImported, err := m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.DataImported)).Integer()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read meta", zap.Error(err))
@@ -481,7 +496,7 @@ func (m *Master) checkDataImported() bool {
 		return false
 	}
 	if isDataImported > 0 {
-		err = m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.DataImported), 0))
+		err = m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.DataImported), 0))
 		if err != nil {
 			log.Logger().Error("failed to write meta", zap.Error(err))
 		}
@@ -492,7 +507,7 @@ func (m *Master) checkDataImported() bool {
 
 func (m *Master) notifyDataImported() {
 	ctx := context.Background()
-	err := m.CacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.DataImported), 1))
+	err := m.FastCacheClient.Set(ctx, cache.Integer(cache.Key(cache.GlobalMeta, cache.DataImported), 1))
 	if err != nil {
 		log.Logger().Error("failed to write meta", zap.Error(err))
 	}

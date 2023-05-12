@@ -57,6 +57,8 @@ func (suite *ServerTestSuite) SetupSuite() {
 	suite.CacheClient, err = cache.Open("redis://"+suite.cacheStoreServer.Addr(), "")
 	suite.NoError(err)
 
+	suite.FastCacheClient = suite.CacheClient
+
 	suite.PopularItemsCache = newPopularItemsCacheForTest(&suite.RestServer)
 	suite.HiddenItemsManager = newHiddenItemsManagerForTest(&suite.RestServer)
 	suite.WebService = new(restful.WebService)

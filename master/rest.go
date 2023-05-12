@@ -553,31 +553,31 @@ func (m *Master) getStats(request *restful.Request, response *restful.Response) 
 	status := Status{BinaryVersion: version.Version}
 	var err error
 	// read number of users
-	if status.NumUsers, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumUsers)).Integer(); err != nil {
+	if status.NumUsers, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumUsers)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of users", zap.Error(err))
 	}
 	// read number of items
-	if status.NumItems, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumItems)).Integer(); err != nil {
+	if status.NumItems, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumItems)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of items", zap.Error(err))
 	}
 	// read number of user labels
-	if status.NumUserLabels, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumUserLabels)).Integer(); err != nil {
+	if status.NumUserLabels, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumUserLabels)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of user labels", zap.Error(err))
 	}
 	// read number of item labels
-	if status.NumItemLabels, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumItemLabels)).Integer(); err != nil {
+	if status.NumItemLabels, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumItemLabels)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of item labels", zap.Error(err))
 	}
 	// read number of total positive feedback
-	if status.NumTotalPosFeedback, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumTotalPosFeedbacks)).Integer(); err != nil {
+	if status.NumTotalPosFeedback, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumTotalPosFeedbacks)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of total positive feedbacks", zap.Error(err))
 	}
 	// read number of valid positive feedback
-	if status.NumValidPosFeedback, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks)).Integer(); err != nil {
+	if status.NumValidPosFeedback, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumValidPosFeedbacks)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of valid positive feedbacks", zap.Error(err))
 	}
 	// read number of valid negative feedback
-	if status.NumValidNegFeedback, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks)).Integer(); err != nil {
+	if status.NumValidNegFeedback, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.NumValidNegFeedbacks)).Integer(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get number of valid negative feedbacks", zap.Error(err))
 	}
 	// count the number of workers and servers
@@ -592,27 +592,27 @@ func (m *Master) getStats(request *restful.Request, response *restful.Response) 
 	}
 	m.nodesInfoMutex.Unlock()
 	// read popular items update time
-	if status.PopularItemsUpdateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastUpdatePopularItemsTime)).Time(); err != nil {
+	if status.PopularItemsUpdateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastUpdatePopularItemsTime)).Time(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get popular items update time", zap.Error(err))
 	}
 	// read the latest items update time
-	if status.LatestItemsUpdateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastUpdateLatestItemsTime)).Time(); err != nil {
+	if status.LatestItemsUpdateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastUpdateLatestItemsTime)).Time(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get latest items update time", zap.Error(err))
 	}
 	status.MatchingModelScore = m.rankingScore
 	status.RankingModelScore = m.clickScore
 	// read last fit matching model time
-	if status.MatchingModelFitTime, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastFitMatchingModelTime)).Time(); err != nil {
+	if status.MatchingModelFitTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastFitMatchingModelTime)).Time(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get last fit matching model time", zap.Error(err))
 	}
 	// read last fit ranking model time
-	if status.RankingModelFitTime, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastFitRankingModelTime)).Time(); err != nil {
+	if status.RankingModelFitTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.LastFitRankingModelTime)).Time(); err != nil {
 		log.ResponseLogger(response).Warn("failed to get last fit ranking model time", zap.Error(err))
 	}
 	// read user neighbor index recall
 	var temp string
 	if m.Config.Recommend.UserNeighbors.EnableIndex {
-		if temp, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.UserNeighborIndexRecall)).String(); err != nil {
+		if temp, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.UserNeighborIndexRecall)).String(); err != nil {
 			log.ResponseLogger(response).Warn("failed to get user neighbor index recall", zap.Error(err))
 		} else {
 			status.UserNeighborIndexRecall = encoding.ParseFloat32(temp)
@@ -620,7 +620,7 @@ func (m *Master) getStats(request *restful.Request, response *restful.Response) 
 	}
 	// read item neighbor index recall
 	if m.Config.Recommend.ItemNeighbors.EnableIndex {
-		if temp, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.ItemNeighborIndexRecall)).String(); err != nil {
+		if temp, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.ItemNeighborIndexRecall)).String(); err != nil {
 			log.ResponseLogger(response).Warn("failed to get item neighbor index recall", zap.Error(err))
 		} else {
 			status.ItemNeighborIndexRecall = encoding.ParseFloat32(temp)
@@ -628,7 +628,7 @@ func (m *Master) getStats(request *restful.Request, response *restful.Response) 
 	}
 	// read matching index recall
 	if m.Config.Recommend.Collaborative.EnableIndex {
-		if temp, err = m.CacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.MatchingIndexRecall)).String(); err != nil {
+		if temp, err = m.FastCacheClient.Get(ctx, cache.Key(cache.GlobalMeta, cache.MatchingIndexRecall)).String(); err != nil {
 			log.ResponseLogger(response).Warn("failed to get matching index recall", zap.Error(err))
 		} else {
 			status.MatchingIndexRecall = encoding.ParseFloat32(temp)
@@ -703,7 +703,7 @@ func (m *Master) getUser(request *restful.Request, response *restful.Response) {
 		return
 	}
 	detail := User{User: user}
-	if detail.LastActiveTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
+	if detail.LastActiveTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
 		server.InternalServerError(response, err)
 		return
 	}
@@ -711,7 +711,7 @@ func (m *Master) getUser(request *restful.Request, response *restful.Response) {
 	if detail.LastActiveTime.IsZero() {
 		detail.LastActiveTime = detail.ActiveTime
 	}
-	if detail.LastUpdateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
+	if detail.LastUpdateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
 		server.InternalServerError(response, err)
 		return
 	}
@@ -739,7 +739,7 @@ func (m *Master) getUsers(request *restful.Request, response *restful.Response) 
 	details := make([]User, len(users))
 	for i, user := range users {
 		details[i].User = user
-		if details[i].LastActiveTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
+		if details[i].LastActiveTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
 			server.InternalServerError(response, err)
 			return
 		}
@@ -748,7 +748,7 @@ func (m *Master) getUsers(request *restful.Request, response *restful.Response) 
 			details[i].LastActiveTime = user.ActiveTime
 		}
 
-		if details[i].LastUpdateTime, err = m.CacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
+		if details[i].LastUpdateTime, err = m.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, user.UserId)).Time(); err != nil && !errors.Is(err, errors.NotFound) {
 			server.InternalServerError(response, err)
 			return
 		}
