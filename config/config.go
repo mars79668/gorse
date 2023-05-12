@@ -99,9 +99,11 @@ type ServerConfig struct {
 
 // RecommendConfig is the configuration of recommendation setup.
 type RecommendConfig struct {
-	CacheSize     int `mapstructure:"cache_size" validate:"gt=0"`
-	ItemCacheSize int `mapstructure:"item_cache_size" validate:"gt=0"`
-	UserCacheSize int `mapstructure:"user_cache_size" validate:"gt=0"`
+	CacheSize        int `mapstructure:"cache_size" validate:"gt=0"`
+	ItemCacheSize    int `mapstructure:"item_cache_size" validate:"gt=0"`
+	UserCacheSize    int `mapstructure:"user_cache_size" validate:"gt=0"`
+	PopularCacheSize int `mapstructure:"cache_size" validate:"gt=0"`
+	LatestCacheSize  int `mapstructure:"cache_size" validate:"gt=0"`
 
 	ActiveExpire  time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
 	CacheExpire   time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
@@ -196,11 +198,13 @@ func GetDefaultConfig() *Config {
 			CacheExpire:    10 * time.Second,
 		},
 		Recommend: RecommendConfig{
-			CacheSize:     100,
-			ItemCacheSize: 20,
-			UserCacheSize: 10,
-			CacheExpire:   72 * time.Hour,
-			ActiveExpire:  72 * time.Hour,
+			CacheSize:        100,
+			PopularCacheSize: 1000,
+			LatestCacheSize:  200,
+			ItemCacheSize:    20,
+			UserCacheSize:    10,
+			CacheExpire:      72 * time.Hour,
+			ActiveExpire:     72 * time.Hour,
 			Popular: PopularConfig{
 				PopularWindow: 180 * 24 * time.Hour,
 			},
@@ -483,6 +487,8 @@ func setDefault() {
 	viper.SetDefault("recommend.cache_size", defaultConfig.Recommend.CacheSize)
 	viper.SetDefault("recommend.item_cache_size", defaultConfig.Recommend.ItemCacheSize)
 	viper.SetDefault("recommend.user_cache_size", defaultConfig.Recommend.UserCacheSize)
+	viper.SetDefault("recommend.popular_cache_size", defaultConfig.Recommend.PopularCacheSize)
+	viper.SetDefault("recommend.latest_cache_size", defaultConfig.Recommend.LatestCacheSize)
 	viper.SetDefault("recommend.cache_expire", defaultConfig.Recommend.CacheExpire)
 	// [recommend.popular]
 	viper.SetDefault("recommend.popular.popular_window", defaultConfig.Recommend.Popular.PopularWindow)

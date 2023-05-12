@@ -384,13 +384,13 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 		}()
 		itemId := dataset.ItemIndex.ToName(int32(itemIndex))
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
-			log.Logger().Debug("ItemNeighborCache NOT Timeout",
-				zap.String("item", itemId))
+			//log.Logger().Debug("ItemNeighborCache NOT Timeout",
+			//	zap.String("item", itemId))
 			return nil
 		}
 
-		log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
-			zap.String("item", itemId))
+		//log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
+		//	zap.String("item", itemId))
 		updateItemCount.Add(1)
 		startTime := time.Now()
 		nearItemsFilters := make(map[string]*heap.TopKFilter[int32, float32])
@@ -490,12 +490,12 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 		}()
 		itemId := dataset.ItemIndex.ToName(int32(itemIndex))
 		if !m.checkItemNeighborCacheTimeout(itemId, dataset.CategorySet.List()) {
-			log.Logger().Debug("ItemNeighborCache NOT Timeout",
-				zap.String("item", itemId))
+			//log.Logger().Debug("ItemNeighborCache NOT Timeout",
+			//	zap.String("item", itemId))
 			return nil
 		}
-		log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
-			zap.String("item", itemId))
+		//log.Logger().Debug("ItemNeighborCache Timeout For UPDATE",
+		//	zap.String("item", itemId))
 		updateItemCount.Add(1)
 		startTime := time.Now()
 		var neighbors map[string][]int32
@@ -1452,7 +1452,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 
 	// create filers for latest items
 	latestItemsFilters := make(map[string]*heap.TopKFilter[string, float64])
-	latestItemsFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
+	latestItemsFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.LatestCacheSize)
 
 	// STEP 1: pull users
 	userLabelCount := make(map[string]int)
@@ -1541,7 +1541,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 				latestItemsFilters[""].Push(item.ItemId, float64(item.Timestamp.Unix()))
 				for _, category := range item.Categories {
 					if _, exist := latestItemsFilters[category]; !exist {
-						latestItemsFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
+						latestItemsFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.LatestCacheSize / 2)
 					}
 					latestItemsFilters[category].Push(item.ItemId, float64(item.Timestamp.Unix()))
 				}
@@ -1694,14 +1694,14 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	// collect popular items
 	log.Logger().Debug("collect popular items", zap.Int("len", len(popularCount)))
 	popularItemFilters := make(map[string]*heap.TopKFilter[string, float64])
-	popularItemFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
+	popularItemFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.PopularCacheSize)
 	for itemIndex, val := range popularCount {
 		itemId := rankingDataset.ItemIndex.ToName(int32(itemIndex))
 		popularItemFilters[""].Push(itemId, float64(val))
 		//log.Logger().Debug(" collect popular items category", zap.Int("len", len(rankingDataset.ItemCategories[itemIndex])))
 		for _, category := range rankingDataset.ItemCategories[itemIndex] {
 			if _, exist := popularItemFilters[category]; !exist {
-				popularItemFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.CacheSize)
+				popularItemFilters[category] = heap.NewTopKFilter[string, float64](m.Config.Recommend.PopularCacheSize / 2)
 			}
 			popularItemFilters[category].Push(itemId, float64(val))
 		}
