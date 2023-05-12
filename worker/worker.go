@@ -1062,6 +1062,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	var (
 		activeTime    time.Time
 		recommendTime time.Time
+		modifiedTime  time.Time
 		cacheDigest   string
 		err           error
 	)
@@ -1114,8 +1115,23 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		return true
 	}
 
+	modifiedTime, err = w.CacheClient.Get(ctx, cache.Key(cache.LastModifyUserTime, userId)).Time()
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			log.Logger().Error("failed to read last modify user time", zap.Error(err))
+		}
+		w.CacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
+		return true
+	}
+
 	// check time
 	if activeTime.Before(recommendTime) {
+		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)
+		return timeoutTime.Before(time.Now())
+	}
+
+	// check time
+	if modifiedTime.Before(recommendTime) {
 		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)
 		return timeoutTime.Before(time.Now())
 	}
@@ -1130,7 +1146,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	// 		return true
 	// 	}
 	// }
-	return true
+	return false
 }
 
 func (w *Worker) loadUserHistoricalItems(database data.Database, userId string) ([]string, []data.Feedback, error) {
