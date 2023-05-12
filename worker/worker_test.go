@@ -119,27 +119,28 @@ func (suite *WorkerTestSuite) TestCheckRecommendCacheTimeout() {
 	ctx := context.Background()
 
 	// empty cache
-	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	user := data.User{UserId: "0"}
+	suite.True(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 	err := suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", []cache.Scored{{"0", 0}})
 	suite.NoError(err)
 
 	// digest mismatch
-	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	suite.True(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 	err = suite.FastCacheClient.Set(ctx, cache.String(cache.Key(cache.OfflineRecommendDigest, "0"), suite.Config.OfflineRecommendDigest()))
 	suite.NoError(err)
 
 	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "0"), time.Now().Add(-time.Hour)))
 	suite.NoError(err)
-	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	suite.True(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(-time.Hour*100)))
 	suite.NoError(err)
-	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	suite.True(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 	err = suite.FastCacheClient.Set(ctx, cache.Time(cache.Key(cache.LastUpdateUserRecommendTime, "0"), time.Now().Add(time.Hour*100)))
 	suite.NoError(err)
-	suite.False(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	suite.False(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 	err = suite.CacheClient.SetSorted(ctx, cache.OfflineRecommend, "0", nil)
 	suite.NoError(err)
-	suite.True(suite.checkRecommendCacheTimeout(ctx, "0", nil))
+	suite.True(suite.checkRecommendCacheTimeout(ctx, &user, nil))
 }
 
 type mockMatrixFactorizationForRecommend struct {
