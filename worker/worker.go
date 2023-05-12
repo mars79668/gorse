@@ -1124,7 +1124,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to load offline recommendation digest", zap.String("user_id", userId), zap.Error(err))
 		}
-		log.Logger().Error("no cache digest timeout", zap.String("user", userId))
+		//log.Logger().Error("no cache digest timeout", zap.String("user", userId))
 		return true
 	}
 	if cacheDigest != w.Config.OfflineRecommendDigest() {
@@ -1151,21 +1151,27 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	}
 
 	// check time
-	if activeTime.Before(recommendTime) {
-		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)
-		log.Logger().Error("active time timeout", zap.String("user", userId),
-			zap.Duration("CacheExpire", w.Config.Recommend.Offline.RefreshRecommendPeriod),
-			zap.Time("activeTime", activeTime))
+	if activeTime.After(recommendTime) {
+		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.CheckRecommendPeriod)
+		if timeoutTime.Before(time.Now()) {
+			log.Logger().Error("active time timeout", zap.String("user", userId),
+				zap.Duration("CacheExpire", w.Config.Recommend.Offline.RefreshRecommendPeriod),
+				zap.Time("activeTime", activeTime),
+				zap.Time("recommendTime", recommendTime))
+		}
 		return timeoutTime.Before(time.Now())
 	}
 
 	// check time
-	if modifiedTime.Before(recommendTime) {
-		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.RefreshRecommendPeriod)
-		log.Logger().Error("modified time timeout", zap.String("user", userId),
-			zap.Duration("CacheExpire", w.Config.Recommend.Offline.RefreshRecommendPeriod),
-			zap.Time("modifiedTime", modifiedTime))
-		return timeoutTime.Before(time.Now())
+	if modifiedTime.After(recommendTime) {
+		timeoutTime := recommendTime.Add(w.Config.Recommend.Offline.CheckRecommendPeriod)
+		if timeoutTime.Before(time.Now()) {
+			log.Logger().Error("modified time timeout", zap.String("user", userId),
+				zap.Duration("CacheExpire", w.Config.Recommend.Offline.RefreshRecommendPeriod),
+				zap.Time("modifiedTime", modifiedTime),
+				zap.Time("recommendTime", recommendTime))
+			return timeoutTime.Before(time.Now())
+		}
 	}
 
 	// check cache
