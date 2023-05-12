@@ -1116,7 +1116,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
 		}
-		log.Logger().Error("no modify time timeout", zap.String("user", userId))
+		//log.Logger().Error("no modify time timeout", zap.String("user", userId))
 		w.FastCacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
 		return true
 	}
@@ -1127,7 +1127,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last update user recommend time", zap.Error(err))
 		}
-		log.Logger().Error("no recommend time timeout", zap.String("user", userId))
+		//log.Logger().Error("no recommend time timeout", zap.String("user", userId))
 		return true
 	}
 
