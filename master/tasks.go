@@ -910,6 +910,7 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last modify user time", zap.Error(err))
 		}
+		log.Logger().Error("no modify time timeout", zap.String("user", userId))
 		m.FastCacheClient.Add(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, userId), time.Now()))
 		return true
 	}
@@ -920,9 +921,11 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read user neighbors digest", zap.Error(err))
 		}
+		log.Logger().Error("no cache digest timeout", zap.String("user", userId))
 		return true
 	}
 	if cacheDigest != m.Config.UserNeighborDigest() {
+		log.Logger().Error("cache digest changed", zap.String("user", userId))
 		return true
 	}
 
@@ -932,10 +935,14 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to read last update user neighbors time", zap.Error(err))
 		}
+		log.Logger().Error("no update time timeout", zap.String("user", userId))
 		return true
 	}
 	// check cache expire
 	if updateTime.Before(time.Now().Add(-m.Config.Recommend.CacheExpire)) {
+		log.Logger().Error("update time timeout", zap.String("user", userId),
+			zap.Duration("CacheExpire", m.Config.Recommend.CacheExpire),
+			zap.Time("update", updateTime))
 		return true
 	}
 
@@ -948,6 +955,11 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 	// }
 
 	// check time
+	if updateTime.Unix() < modifiedTime.Unix() {
+		log.Logger().Error("modify time changed", zap.String("user", userId),
+			zap.Time("update", updateTime), zap.Time("modified", modifiedTime))
+	}
+
 	return updateTime.Unix() <= modifiedTime.Unix()
 }
 
