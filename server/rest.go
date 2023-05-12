@@ -584,8 +584,23 @@ func (s *RestServer) getSort(subTable, key, category string, isItem bool, reques
 	}
 	userId = request.QueryParameter("user-id")
 
+	cacheSize := s.Config.Recommend.CacheSize
+
+	if subTable == cache.PopularItems {
+		cacheSize = s.Config.Recommend.PopularCacheSize
+	}
+	if subTable == cache.LatestItems {
+		cacheSize = s.Config.Recommend.LatestCacheSize
+	}
+	if subTable == cache.ItemNeighbors {
+		cacheSize = s.Config.Recommend.ItemCacheSize
+	}
+	if subTable == cache.UserNeighbors {
+		cacheSize = s.Config.Recommend.UserCacheSize
+	}
+
 	// Get the popular list
-	items, err := s.CacheClient.GetSorted(ctx, subTable, cache.Key(key, category), offset, s.Config.Recommend.CacheSize)
+	items, err := s.CacheClient.GetSorted(ctx, subTable, cache.Key(key, category), offset, cacheSize)
 	if err != nil {
 		InternalServerError(response, err)
 		return
@@ -978,7 +993,7 @@ func (s *RestServer) RecommendLatest(ctx *recommendContext) error {
 			return errors.Trace(err)
 		}
 		start := time.Now()
-		items, err := s.CacheClient.GetSorted(ctx.context, cache.LatestItems, ctx.category, 0, s.Config.Recommend.CacheSize)
+		items, err := s.CacheClient.GetSorted(ctx.context, cache.LatestItems, ctx.category, 0, s.Config.Recommend.LatestCacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1003,7 +1018,7 @@ func (s *RestServer) RecommendPopular(ctx *recommendContext) error {
 			return errors.Trace(err)
 		}
 		start := time.Now()
-		items, err := s.CacheClient.GetSorted(ctx.context, cache.PopularItems, ctx.category, 0, s.Config.Recommend.CacheSize)
+		items, err := s.CacheClient.GetSorted(ctx.context, cache.PopularItems, ctx.category, 0, s.Config.Recommend.PopularCacheSize)
 		if err != nil {
 			return errors.Trace(err)
 		}

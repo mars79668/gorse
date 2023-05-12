@@ -102,8 +102,8 @@ type RecommendConfig struct {
 	CacheSize        int `mapstructure:"cache_size" validate:"gt=0"`
 	ItemCacheSize    int `mapstructure:"item_cache_size" validate:"gt=0"`
 	UserCacheSize    int `mapstructure:"user_cache_size" validate:"gt=0"`
-	PopularCacheSize int `mapstructure:"cache_size" validate:"gt=0"`
-	LatestCacheSize  int `mapstructure:"cache_size" validate:"gt=0"`
+	PopularCacheSize int `mapstructure:"popular_cache_size" validate:"gt=0"`
+	LatestCacheSize  int `mapstructure:"latest_cache_size" validate:"gt=0"`
 
 	ActiveExpire  time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
 	CacheExpire   time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
@@ -201,7 +201,7 @@ func GetDefaultConfig() *Config {
 			CacheSize:        100,
 			PopularCacheSize: 1000,
 			LatestCacheSize:  200,
-			ItemCacheSize:    20,
+			ItemCacheSize:    60,
 			UserCacheSize:    10,
 			CacheExpire:      72 * time.Hour,
 			ActiveExpire:     72 * time.Hour,

@@ -722,7 +722,7 @@ func (w *Worker) Recommend(users []data.User) {
 		if w.Config.Recommend.Offline.EnableLatestRecommend {
 			localStartTime := time.Now()
 			for _, category := range append([]string{""}, itemCategories...) {
-				latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.CacheSize)
+				latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.LatestCacheSize)
 				if err != nil {
 					log.Logger().Error("failed to load latest items", zap.Error(err))
 					return errors.Trace(err)
@@ -742,7 +742,7 @@ func (w *Worker) Recommend(users []data.User) {
 		if w.Config.Recommend.Offline.EnablePopularRecommend {
 			localStartTime := time.Now()
 			for _, category := range append([]string{""}, itemCategories...) {
-				popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.CacheSize)
+				popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.PopularCacheSize)
 				if err != nil {
 					log.Logger().Error("failed to load popular items", zap.Error(err))
 					return errors.Trace(err)
@@ -1011,12 +1011,12 @@ func (w *Worker) exploreRecommend(exploitRecommend []cache.Scored, excludeSet *s
 		exploreLatestThreshold += threshold
 	}
 	// load popular items
-	popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.CacheSize)
+	popularItems, err := w.CacheClient.GetSorted(ctx, cache.PopularItems, category, 0, w.Config.Recommend.PopularCacheSize)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// load the latest items
-	latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.CacheSize)
+	latestItems, err := w.CacheClient.GetSorted(ctx, cache.LatestItems, category, 0, w.Config.Recommend.LatestCacheSize)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

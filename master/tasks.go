@@ -85,9 +85,9 @@ func (m *Master) runLoadDatasetTask() error {
 		return errors.Trace(err)
 	}
 
-	log.Logger().Debug("save popular items to cache")
 	// save popular items to cache
 	for category, items := range popularItems {
+		log.Logger().Debug("save popular items to cache", zap.String("category", category), zap.Int("count", len(items)))
 		if err = m.CacheClient.SetSorted(ctx, cache.PopularItems, category, items); err != nil {
 			log.Logger().Error("failed to cache popular items", zap.Error(err))
 		}
@@ -99,6 +99,7 @@ func (m *Master) runLoadDatasetTask() error {
 	log.Logger().Debug("save the latest items to cache")
 	// save the latest items to cache
 	for category, items := range latestItems {
+		log.Logger().Debug("save latest items to cache", zap.String("category", category), zap.Int("count", len(items)))
 		if err = m.CacheClient.AddSorted(ctx, cache.LatestItems, cache.Sorted(category, items)); err != nil {
 			log.Logger().Error("failed to cache latest items", zap.Error(err))
 		}
@@ -1684,7 +1685,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	LoadDatasetStepSecondsVec.WithLabelValues("create_ranking_dataset").Set(time.Since(start).Seconds())
 
 	// collect latest items
-	log.Logger().Debug("collect latest items Filters", zap.Int("len", len(latestItemsFilters)))
+	log.Logger().Debug("collect latest items Filters", zap.Int("len", len(latestItemsFilters)), zap.Int("cache_size", m.Config.Recommend.LatestCacheSize))
 	latestItems = make(map[string][]cache.Scored)
 	for category, latestItemsFilter := range latestItemsFilters {
 		items, scores := latestItemsFilter.PopAll()
@@ -1692,7 +1693,7 @@ func (m *Master) LoadDataFromDatabase(database data.Database, posFeedbackTypes, 
 	}
 
 	// collect popular items
-	log.Logger().Debug("collect popular items", zap.Int("len", len(popularCount)))
+	log.Logger().Debug("collect popular items", zap.Int("len", len(popularCount)), zap.Int("cache_size", m.Config.Recommend.PopularCacheSize))
 	popularItemFilters := make(map[string]*heap.TopKFilter[string, float64])
 	popularItemFilters[""] = heap.NewTopKFilter[string, float64](m.Config.Recommend.PopularCacheSize)
 	for itemIndex, val := range popularCount {
