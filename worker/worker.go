@@ -1084,8 +1084,8 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User
 		activeTime    time.Time
 		recommendTime time.Time
 		modifiedTime  time.Time
-		cacheDigest   string
-		err           error
+		//cacheDigest   string
+		err error
 	)
 
 	userId := user.UserId
@@ -1132,7 +1132,7 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User
 	}
 
 	// read digest
-	cacheDigest, err = w.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
+	_, err = w.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			log.Logger().Error("failed to load offline recommendation digest", zap.String("user_id", userId), zap.Error(err))
@@ -1140,14 +1140,14 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User
 		//log.Logger().Error("no cache digest timeout", zap.String("user", userId))
 		return true
 	}
-	if cacheDigest != w.Config.OfflineRecommendDigest() {
-		log.Logger().Error("cache digest changed", zap.String("user", userId),
-			zap.String("cacheDigest", cacheDigest),
-			zap.String("newDigest", w.Config.OfflineRecommendDigest()),
-			zap.Time("recommend", recommendTime))
-		//OfflineRecommendDigest 和 用户数据相关，不能使用OfflineRecommendDigest() 对比
-		//return true
-	}
+	// if cacheDigest != w.Config.OfflineRecommendDigest() {
+	// 	log.Logger().Error("cache digest changed", zap.String("user", userId),
+	// 		zap.String("cacheDigest", cacheDigest),
+	// 		zap.String("newDigest", w.Config.OfflineRecommendDigest()),
+	// 		zap.Time("recommend", recommendTime))
+	// 	//OfflineRecommendDigest 和 用户数据相关，不能使用OfflineRecommendDigest() 对比
+	// 	//return true
+	// }
 
 	// check cache expire
 	if recommendTime.Before(time.Now().Add(-w.Config.Recommend.CacheExpire)) {

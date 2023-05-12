@@ -1431,9 +1431,11 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			// delete user cache
 			switch splits[0] {
 			case cache.UserNeighbors, cache.IgnoreItems, cache.CollaborativeRecommend, cache.OfflineRecommend:
+				log.Logger().Debug("delete user cache data", zap.String("table", splits[0]), zap.String("key", s))
 				err = t.CacheClient.SetSorted(ctx, splits[0], s, nil)
 			case cache.UserNeighborsDigest, cache.OfflineRecommendDigest,
 				cache.LastModifyUserTime, cache.LastUpdateUserNeighborsTime, cache.LastUpdateUserRecommendTime:
+				log.Logger().Error("delete cache data", zap.String("key", s))
 				err = t.FastCacheClient.Delete(ctx, s)
 			}
 			if err != nil {
@@ -1457,8 +1459,10 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 			// delete item cache
 			switch splits[0] {
 			case cache.ItemNeighbors:
+				log.Logger().Debug("delete user cache data", zap.String("table", cache.ItemNeighbors), zap.String("key", s))
 				err = t.CacheClient.SetSorted(ctx, cache.ItemNeighbors, s, nil)
 			case cache.ItemNeighborsDigest, cache.LastModifyItemTime, cache.LastUpdateItemNeighborsTime:
+				log.Logger().Error("delete cache data", zap.String("key", s))
 				err = t.FastCacheClient.Delete(ctx, s)
 			}
 			if err != nil {
