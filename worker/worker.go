@@ -566,9 +566,12 @@ func (w *Worker) Recommend(users []data.User) {
 		user := users[jobId]
 		userId := user.UserId
 		// skip inactive users before max recommend period
-		if !w.checkRecommendCacheTimeout(ctx, user, itemCategories) {
+		if !w.checkRecommendCacheTimeout(ctx, &user, itemCategories) {
 			if user.ActiveTime.Before(time.Now().Add(-w.Config.Recommend.ActiveExpire)) {
 				//用户不活跃，清除缓存
+				log.Logger().Debug("active Timeout,delete cache", zap.String("user_id", userId),
+					zap.Duration("ActiveExpire", w.Config.Recommend.ActiveExpire),
+					zap.Time("ActiveTime", user.ActiveTime))
 				for _, category := range itemCategories {
 					if err = w.CacheClient.SetSorted(ctx, cache.OfflineRecommend, cache.Key(userId, category), nil); err != nil {
 						log.Logger().Error("failed to cache recommendation", zap.Error(err))
@@ -1076,7 +1079,7 @@ func (w *Worker) exploreRecommend(exploitRecommend []cache.Scored, excludeSet *s
 // 1. if cache is empty, stale.
 // 2. if active time > recommend time, stale.
 // 3. if recommend time + timeout < now, stale.
-func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User, categories []string) bool {
+func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user *data.User, categories []string) bool {
 	var (
 		activeTime    time.Time
 		recommendTime time.Time
@@ -1118,6 +1121,16 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 		return true
 	}
 
+	// read recommend time
+	recommendTime, err = w.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			log.Logger().Error("failed to read last update user recommend time", zap.Error(err))
+		}
+		log.Logger().Error("no recommend time timeout", zap.String("user", userId))
+		return true
+	}
+
 	// read digest
 	cacheDigest, err = w.FastCacheClient.Get(ctx, cache.Key(cache.OfflineRecommendDigest, userId)).String()
 	if err != nil {
@@ -1129,19 +1142,13 @@ func (w *Worker) checkRecommendCacheTimeout(ctx context.Context, user data.User,
 	}
 	if cacheDigest != w.Config.OfflineRecommendDigest() {
 		log.Logger().Error("cache digest changed", zap.String("user", userId),
-			zap.String("cacheDigest", cacheDigest), zap.String("newDigest", w.Config.OfflineRecommendDigest()))
-		return true
+			zap.String("cacheDigest", cacheDigest),
+			zap.String("newDigest", w.Config.OfflineRecommendDigest()),
+			zap.Time("recommend", recommendTime))
+		//OfflineRecommendDigest 和 用户数据相关，不能使用OfflineRecommendDigest() 对比
+		//return true
 	}
 
-	// read recommend time
-	recommendTime, err = w.FastCacheClient.Get(ctx, cache.Key(cache.LastUpdateUserRecommendTime, userId)).Time()
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			log.Logger().Error("failed to read last update user recommend time", zap.Error(err))
-		}
-		log.Logger().Error("no recommend time timeout", zap.String("user", userId))
-		return true
-	}
 	// check cache expire
 	if recommendTime.Before(time.Now().Add(-w.Config.Recommend.CacheExpire)) {
 		log.Logger().Error("recommend time timeout", zap.String("user", userId),
