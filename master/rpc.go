@@ -17,6 +17,9 @@ package master
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/zhenghaoz/gorse/base/log"
 	"github.com/zhenghaoz/gorse/model/click"
@@ -24,8 +27,6 @@ import (
 	"github.com/zhenghaoz/gorse/protocol"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
-	"io"
-	"strings"
 )
 
 // Node could be worker node for server node.
@@ -67,6 +68,14 @@ func (m *Master) GetMeta(ctx context.Context, nodeInfo *protocol.NodeInfo) (*pro
 	// register node
 	node := NewNode(ctx, nodeInfo)
 	if node.Type != "" {
+		log.Logger().Info("New node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
+		en, _ := m.ttlCache.Get(nodeInfo.NodeName)
+		if en != nil {
+			existNode, ok := en.(*Node)
+			if ok && existNode.IP != node.IP {
+				m.ttlCache.Remove(nodeInfo.NodeName)
+			}
+		}
 		if err := m.ttlCache.Set(nodeInfo.NodeName, node); err != nil {
 			log.Logger().Error("failed to set ttl cache", zap.Error(err))
 			return nil, err

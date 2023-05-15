@@ -373,6 +373,7 @@ func (w *Worker) Serve() {
 		log.Logger().Info("start worker",
 			zap.Bool("managed", w.managedMode),
 			zap.Int("n_jobs", w.jobs),
+			zap.String("server", fmt.Sprintf("%v:%v", w.masterHost, w.masterPort)),
 			zap.String("worker_name", w.workerName))
 	}
 
