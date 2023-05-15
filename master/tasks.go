@@ -964,7 +964,7 @@ func (m *Master) checkUserNeighborCacheTimeout(userId string) bool {
 			zap.Time("update", updateTime), zap.Time("modified", modifiedTime))
 	}
 
-	return updateTime.Unix() <= modifiedTime.Unix()
+	return updateTime.Unix() < modifiedTime.Unix()
 }
 
 // checkItemNeighborCacheTimeout checks if item neighbor cache stale.
