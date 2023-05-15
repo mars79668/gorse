@@ -825,6 +825,7 @@ func (w *Worker) Recommend(users []data.User) {
 				log.Logger().Error("failed to cache recommendation", zap.Error(err))
 				return errors.Trace(err)
 			}
+			time.Sleep(w.Config.Recommend.CacheWriteSleep)
 		}
 		recommendTime := time.Now()
 		if err = w.FastCacheClient.Set(
@@ -898,6 +899,7 @@ func (w *Worker) collaborativeRecommendBruteForce(userId string, itemCategories 
 			log.Logger().Error("failed to cache collaborative filtering recommendation result", zap.String("user_id", userId), zap.Error(err))
 			return nil, 0, errors.Trace(err)
 		}
+		time.Sleep(w.Config.Recommend.CacheWriteSleep)
 	}
 	return recommend, time.Since(localStartTime), nil
 }
@@ -926,6 +928,7 @@ func (w *Worker) collaborativeRecommendHNSW(rankingIndex *search.HNSW, userId st
 			log.Logger().Error("failed to cache collaborative filtering recommendation result", zap.String("user_id", userId), zap.Error(err))
 			return nil, 0, errors.Trace(err)
 		}
+		time.Sleep(w.Config.Recommend.CacheWriteSleep)
 	}
 	return recommend, time.Since(localStartTime), nil
 }
