@@ -108,6 +108,7 @@ type RecommendConfig struct {
 
 	OfflineActiveExpire time.Duration       `mapstructure:"offline_active_expire" validate:"gt=0"`
 	ActiveExpire        time.Duration       `mapstructure:"active_expire" validate:"gt=0"`
+	CacheWriteSleep     time.Duration       `mapstructure:"cache_write_sleep" validate:"gt=0"`
 	CacheExpire         time.Duration       `mapstructure:"cache_expire" validate:"gt=0"`
 	DataSource          DataSourceConfig    `mapstructure:"data_source"`
 	Popular             PopularConfig       `mapstructure:"popular"`
@@ -207,6 +208,7 @@ func GetDefaultConfig() *Config {
 			UserCacheSize:       10,
 			CacheExpire:         72 * time.Hour,
 			ActiveExpire:        72 * time.Hour,
+			CacheWriteSleep:     100 * time.Millisecond,
 			OfflineActiveExpire: 24 * time.Hour,
 			Popular: PopularConfig{
 				PopularWindow: 180 * 24 * time.Hour,

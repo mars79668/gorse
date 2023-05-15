@@ -433,6 +433,7 @@ func (m *Master) findItemNeighborsBruteForce(dataset *ranking.DataSet, labeledIt
 				cache.CreateScoredItems(recommends, scores)); err != nil {
 				return errors.Trace(err)
 			}
+			time.Sleep(m.Config.Recommend.CacheWriteSleep)
 		}
 		if err := m.FastCacheClient.Set(
 			ctx,
@@ -533,6 +534,7 @@ func (m *Master) findItemNeighborsIVF(dataset *ranking.DataSet, labelIDF, userID
 				if err := m.CacheClient.SetSorted(ctx, cache.ItemNeighbors, cache.Key(itemId, category), itemScores); err != nil {
 					return errors.Trace(err)
 				}
+				time.Sleep(m.Config.Recommend.CacheWriteSleep)
 			}
 		}
 		if err := m.FastCacheClient.Set(
@@ -772,6 +774,7 @@ func (m *Master) findUserNeighborsBruteForce(dataset *ranking.DataSet, labeledUs
 			return errors.Trace(err)
 		}
 		findNeighborSeconds.Add(time.Since(startTime).Seconds())
+		time.Sleep(m.Config.Recommend.CacheWriteSleep)
 		return nil
 	})
 	if err != nil {
@@ -857,6 +860,7 @@ func (m *Master) findUserNeighborsIVF(dataset *ranking.DataSet, labelIDF, itemID
 			return errors.Trace(err)
 		}
 		findNeighborSeconds.Add(time.Since(startTime).Seconds())
+		time.Sleep(m.Config.Recommend.CacheWriteSleep)
 		return nil
 	})
 	if err != nil {

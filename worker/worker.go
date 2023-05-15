@@ -577,6 +577,7 @@ func (w *Worker) Recommend(users []data.User) {
 						log.Logger().Error("failed to cache recommendation", zap.Error(err))
 						//return errors.Trace(err)
 					}
+					time.Sleep(w.Config.Recommend.CacheWriteSleep)
 				}
 			}
 			skiped <- struct{}{}
