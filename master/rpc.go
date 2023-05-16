@@ -72,7 +72,9 @@ func (m *Master) GetMeta(ctx context.Context, nodeInfo *protocol.NodeInfo) (*pro
 		if en != nil {
 			existNode, ok := en.(*Node)
 			if ok && existNode.IP != node.IP {
+				m.nodeDown(nodeInfo.NodeName, existNode)
 				log.Logger().Info("Update node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
+				m.nodeUp(nodeInfo.NodeName, node)
 			}
 		} else {
 			log.Logger().Info("New node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
