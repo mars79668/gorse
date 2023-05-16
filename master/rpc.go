@@ -68,13 +68,15 @@ func (m *Master) GetMeta(ctx context.Context, nodeInfo *protocol.NodeInfo) (*pro
 	// register node
 	node := NewNode(ctx, nodeInfo)
 	if node.Type != "" {
-		log.Logger().Info("New node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
 		en, _ := m.ttlCache.Get(nodeInfo.NodeName)
 		if en != nil {
 			existNode, ok := en.(*Node)
 			if ok && existNode.IP != node.IP {
+				log.Logger().Info("New node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
 				m.ttlCache.Remove(nodeInfo.NodeName)
 			}
+		} else {
+			log.Logger().Info("New node", zap.String("name", node.Name), zap.String("name", node.IP), zap.Int64("port", node.HttpPort))
 		}
 		if err := m.ttlCache.Set(nodeInfo.NodeName, node); err != nil {
 			log.Logger().Error("failed to set ttl cache", zap.Error(err))

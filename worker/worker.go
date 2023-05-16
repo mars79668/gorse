@@ -457,6 +457,11 @@ func (w *Worker) Recommend(users []data.User) {
 		zap.Int("n_jobs", w.jobs),
 		zap.Int("cache_size", w.Config.Recommend.CacheSize))
 
+	if !w.Config.Recommend.OfflineTime.Check() {
+		log.Logger().Error("not in Offline Recommend timerange", zap.String("time-range", fmt.Sprintf("%v", w.Config.Recommend.OfflineTime)))
+		return
+	}
+
 	// pull items from database
 	itemCache, itemCategories, err := w.pullItems(ctx)
 	if err != nil {

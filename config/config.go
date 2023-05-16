@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +99,28 @@ type ServerConfig struct {
 	CacheExpire    time.Duration `mapstructure:"cache_expire" validate:"gt=0"` // server-side cache expire time
 }
 
+type TimeRange []string
+
+func (tr TimeRange) Check() bool {
+	nh := time.Now().Hour()
+
+	for _, r := range tr {
+		ra := strings.Split(r, "-")
+		if len(ra) == 2 {
+			ns, _ := strconv.ParseInt(ra[0], 10, 64)
+			ne, _ := strconv.ParseInt(ra[1], 10, 64)
+
+			if ns < ne && ns+ne > 0 {
+				if nh >= int(ns) && nh <= int(ne) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // RecommendConfig is the configuration of recommendation setup.
 type RecommendConfig struct {
 	CacheSize        int `mapstructure:"cache_size" validate:"gt=0"`
@@ -118,6 +141,10 @@ type RecommendConfig struct {
 	Replacement         ReplacementConfig   `mapstructure:"replacement"`
 	Offline             OfflineConfig       `mapstructure:"offline"`
 	Online              OnlineConfig        `mapstructure:"online"`
+
+	OfflineTime      TimeRange `mapstructure:"offline_time"`       //离线数据计算时段
+	UserNeighborTime TimeRange `mapstructure:"user_neighbor_time"` //user数据计算时段
+	ItemNeighborTime TimeRange `mapstructure:"item_neighbor_time"` //item数据计算时段
 }
 
 type DataSourceConfig struct {
@@ -210,6 +237,9 @@ func GetDefaultConfig() *Config {
 			ActiveExpire:        72 * time.Hour,
 			CacheWriteSleep:     100 * time.Millisecond,
 			OfflineActiveExpire: 24 * time.Hour,
+			OfflineTime:         TimeRange{"0-3", "14-23"},
+			UserNeighborTime:    TimeRange{"0-6", "14-23"},
+			ItemNeighborTime:    TimeRange{"0-10", "12-23"},
 			Popular: PopularConfig{
 				PopularWindow: 180 * 24 * time.Hour,
 			},
@@ -495,6 +525,10 @@ func setDefault() {
 	viper.SetDefault("recommend.popular_cache_size", defaultConfig.Recommend.PopularCacheSize)
 	viper.SetDefault("recommend.latest_cache_size", defaultConfig.Recommend.LatestCacheSize)
 	viper.SetDefault("recommend.cache_expire", defaultConfig.Recommend.CacheExpire)
+
+	viper.SetDefault("recommend.offline_time", defaultConfig.Recommend.OfflineTime)
+	viper.SetDefault("recommend.user_neighbor_time", defaultConfig.Recommend.UserNeighborTime)
+	viper.SetDefault("recommend.item_neighbor_time", defaultConfig.Recommend.ItemNeighborTime)
 	// [recommend.popular]
 	viper.SetDefault("recommend.popular.popular_window", defaultConfig.Recommend.Popular.PopularWindow)
 	// [recommend.user_neighbors]
