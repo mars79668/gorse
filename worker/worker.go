@@ -137,10 +137,11 @@ func (w *Worker) SetOneMode(settings *config.Settings) {
 // Sync this worker to the master.
 func (w *Worker) Sync() {
 	defer base.CheckPanic()
-	log.Logger().Info("start meta sync", zap.Duration("meta_timeout", w.Config.Master.MetaTimeout))
+
 	for {
 		var meta *protocol.Meta
 		var err error
+		log.Logger().Info("start meta sync", zap.Duration("meta_timeout", w.Config.Master.MetaTimeout))
 		if meta, err = w.masterClient.GetMeta(context.Background(),
 			&protocol.NodeInfo{
 				NodeType:      protocol.NodeType_WorkerNode,
@@ -211,6 +212,8 @@ func (w *Worker) Sync() {
 				zap.String("old_version", encoding.Hex(w.RankingModelVersion)),
 				zap.String("new_version", encoding.Hex(w.latestRankingModelVersion)))
 			w.syncedChan.Signal()
+		} else if meta.RankingModelVersion == 0 {
+			log.Logger().Info("wait master ranking model...")
 		}
 
 		// check click model version
@@ -220,6 +223,8 @@ func (w *Worker) Sync() {
 				zap.String("old_version", encoding.Hex(w.ClickModelVersion)),
 				zap.String("new_version", encoding.Hex(w.latestClickModelVersion)))
 			w.syncedChan.Signal()
+		} else if meta.ClickModelVersion == 0 {
+			log.Logger().Info("wait master click model...")
 		}
 
 		w.peers = meta.Workers
@@ -461,8 +466,20 @@ func (w *Worker) Recommend(users []data.User) {
 		zap.Int("n_jobs", w.jobs),
 		zap.Int("cache_size", w.Config.Recommend.CacheSize))
 
+	recommendTaskName := "Generate offline recommendation"
+	if !w.oneMode {
+		recommendTaskName += fmt.Sprintf(" [%s]", w.workerName)
+	}
+
 	if !w.Config.Recommend.OfflineTime.Check() {
 		log.Logger().Error("not in Offline Recommend timerange", zap.String("time-range", fmt.Sprintf("%v", w.Config.Recommend.OfflineTime)))
+		if w.masterClient != nil {
+			recommendTask := task.NewTask(recommendTaskName, w.estimateRecommendComplexity(1, 1))
+			recommendTask.Fail(fmt.Sprintf("Not in Range:%v", w.Config.Recommend.OfflineTime))
+			if _, err := w.masterClient.PushTaskInfo(context.Background(), protocol.EncodeTask(recommendTask)); err != nil {
+				log.Logger().Error("failed to report start task", zap.Error(err))
+			}
+		}
 		return
 	}
 
@@ -478,10 +495,7 @@ func (w *Worker) Recommend(users []data.User) {
 	// progress tracker
 	completed := make(chan struct{}, 1000)
 	skiped := make(chan struct{}, 1000)
-	recommendTaskName := "Generate offline recommendation"
-	if !w.oneMode {
-		recommendTaskName += fmt.Sprintf(" [%s]", w.workerName)
-	}
+
 	recommendTask := task.NewTask(recommendTaskName, w.estimateRecommendComplexity(len(users), itemCache.Len()))
 	if w.masterClient != nil {
 		if _, err := w.masterClient.PushTaskInfo(context.Background(), protocol.EncodeTask(recommendTask)); err != nil {

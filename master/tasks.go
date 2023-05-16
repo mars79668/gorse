@@ -254,7 +254,7 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 	if !t.Config.Recommend.ItemNeighborTime.Check() {
 		log.Logger().Error("not in UserNeighbors timerange",
 			zap.String("time-range", fmt.Sprintf("%v", t.Config.Recommend.ItemNeighborTime)))
-		t.taskMonitor.Fail(TaskFindItemNeighbors, "No in TimeRange.")
+		t.taskMonitor.Fail(TaskFindItemNeighbors, fmt.Sprintf("No in TimeRange:%v", t.Config.Recommend.ItemNeighborTime))
 		return nil
 	}
 
@@ -608,7 +608,7 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 	if !t.Config.Recommend.UserNeighborTime.Check() {
 		log.Logger().Error("not in UserNeighbors timerange",
 			zap.String("time-range", fmt.Sprintf("%v", t.Config.Recommend.UserNeighborTime)))
-		t.taskMonitor.Fail(TaskFindUserNeighbors, "No in TimeRange.")
+		t.taskMonitor.Fail(TaskFindUserNeighbors, fmt.Sprintf("No in TimeRange:%v", t.Config.Recommend.UserNeighborTime))
 		return nil
 	}
 

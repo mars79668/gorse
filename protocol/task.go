@@ -15,8 +15,9 @@
 package protocol
 
 import (
-	"github.com/zhenghaoz/gorse/base/task"
 	"time"
+
+	"github.com/zhenghaoz/gorse/base/task"
 )
 
 //go:generate protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative protocol.proto
@@ -29,6 +30,7 @@ func DecodeTask(in *PushTaskInfoRequest) *task.Task {
 		Total:      int(in.GetTotal()),
 		StartTime:  time.UnixMilli(in.GetStartTime()),
 		FinishTime: time.UnixMilli(in.GetFinishTime()),
+		Error:      in.GetError(),
 	}
 }
 
@@ -40,5 +42,6 @@ func EncodeTask(t *task.Task) *PushTaskInfoRequest {
 		Total:      int64(t.Total),
 		StartTime:  t.StartTime.UnixMilli(),
 		FinishTime: t.FinishTime.UnixMilli(),
+		Error:      string(t.Error),
 	}
 }
