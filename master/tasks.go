@@ -251,6 +251,12 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 	numFeedback := dataset.Count()
 	ctx := context.Background()
 
+	if !t.Config.Recommend.ItemNeighborTime.Check() {
+		log.Logger().Error("not in UserNeighbors timerange",
+			zap.String("time-range", fmt.Sprintf("%v", t.Config.Recommend.ItemNeighborTime)))
+		return nil
+	}
+
 	if numItems == 0 {
 		t.taskMonitor.Fail(TaskFindItemNeighbors, "No item found.")
 		return nil
@@ -597,6 +603,12 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 	numUsers := dataset.UserCount()
 	numFeedback := dataset.Count()
 	ctx := context.Background()
+
+	if !t.Config.Recommend.UserNeighborTime.Check() {
+		log.Logger().Error("not in UserNeighbors timerange",
+			zap.String("time-range", fmt.Sprintf("%v", t.Config.Recommend.UserNeighborTime)))
+		return nil
+	}
 
 	if numUsers == 0 {
 		t.taskMonitor.Fail(TaskFindItemNeighbors, "No item found.")
