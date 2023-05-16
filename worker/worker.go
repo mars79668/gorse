@@ -188,6 +188,8 @@ func (w *Worker) Sync() {
 				log.Logger().Error("failed to connect cache store", zap.Error(err))
 				goto sleep
 			}
+			log.Logger().Info("connect cache store ok",
+				zap.String("database", log.RedactDBURL(w.Config.Database.CacheStore)))
 
 			log.Logger().Info("connect fast cache store",
 				zap.String("database", log.RedactDBURL(w.Config.Database.FastCacheStore)))
@@ -196,6 +198,8 @@ func (w *Worker) Sync() {
 				goto sleep
 			}
 
+			log.Logger().Info("connect fast cache store ok",
+				zap.String("database", log.RedactDBURL(w.Config.Database.FastCacheStore)))
 			w.cachePath = w.Config.Database.CacheStore
 			w.cachePrefix = w.Config.Database.CacheTablePrefix
 		}
