@@ -120,6 +120,7 @@ func (s *RestServer) LogFilter(req *restful.Request, resp *restful.Response, cha
 		req.Request.URL.Path != "/api/dashboard/tasks" {
 		log.ResponseLogger(resp).Info(fmt.Sprintf("%s %s", req.Request.Method, req.Request.URL),
 			zap.Int("status_code", resp.StatusCode()),
+			zap.String("recommend-Count", resp.Header().Get("X-Recommend-Count")),
 			zap.Duration("response_time", responseTime))
 	}
 }
@@ -633,6 +634,7 @@ func (s *RestServer) getSort(subTable, key, category string, isItem bool, reques
 	if n > 0 && len(items) > n {
 		items = items[:n]
 	}
+	response.Header().Set("X-Recommend-Count", fmt.Sprintf("%d", len(items)))
 	Ok(response, items)
 }
 
@@ -1112,6 +1114,7 @@ func (s *RestServer) getRecommend(request *restful.Request, response *restful.Re
 		}
 	}
 	// Send result
+	response.Header().Set("X-Recommend-Count", fmt.Sprintf("%d", len(results)))
 	Ok(response, results)
 }
 
