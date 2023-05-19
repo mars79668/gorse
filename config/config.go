@@ -102,6 +102,10 @@ type ServerConfig struct {
 type TimeRange []string
 
 func (tr TimeRange) Check() bool {
+	if len(tr) == 0 {
+		return true
+	}
+
 	nh := time.Now().Hour()
 
 	for _, r := range tr {

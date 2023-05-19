@@ -15,11 +15,12 @@
 package task
 
 import (
-	"github.com/scylladb/go-set/strset"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/scylladb/go-set/strset"
 )
 
 type Status string
@@ -224,6 +225,26 @@ func (tm *Monitor) Get(name string) int {
 	task, exist := tm.Tasks[name]
 	if exist {
 		return task.Done
+	}
+	return 0
+}
+
+func (tm *Monitor) Status(name string) Status {
+	tm.TaskLock.Lock()
+	defer tm.TaskLock.Unlock()
+	task, exist := tm.Tasks[name]
+	if exist {
+		return task.Status
+	}
+	return ""
+}
+
+func (tm *Monitor) Progress(name string) float64 {
+	tm.TaskLock.Lock()
+	defer tm.TaskLock.Unlock()
+	task, exist := tm.Tasks[name]
+	if exist {
+		return float64(task.Done) / float64(task.Total)
 	}
 	return 0
 }

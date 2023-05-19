@@ -259,6 +259,13 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 		return nil
 	}
 
+	if !(t.taskMonitor.Status(TaskFindItemNeighbors) == task.StatusComplete ||
+		t.taskMonitor.Status(TaskFindItemNeighbors) == task.StatusFailed ||
+		t.taskMonitor.Status(TaskFindItemNeighbors) == "") {
+		//上个任务正在运行，
+		return nil
+	}
+
 	if numItems == 0 {
 		t.taskMonitor.Start(TaskFindItemNeighbors, 1)
 		t.taskMonitor.Fail(TaskFindItemNeighbors, "No item found.")
@@ -612,6 +619,13 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 			zap.String("time-range", fmt.Sprintf("%v", t.Config.Recommend.UserNeighborTime)))
 		t.taskMonitor.Start(TaskFindUserNeighbors, 1)
 		t.taskMonitor.Fail(TaskFindUserNeighbors, fmt.Sprintf("No in TimeRange:%v", t.Config.Recommend.UserNeighborTime))
+		return nil
+	}
+
+	if !(t.taskMonitor.Status(TaskFindUserNeighbors) == task.StatusComplete ||
+		t.taskMonitor.Status(TaskFindUserNeighbors) == task.StatusFailed ||
+		t.taskMonitor.Status(TaskFindUserNeighbors) == "") {
+		//上个任务正在运行，
 		return nil
 	}
 
