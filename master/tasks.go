@@ -261,7 +261,12 @@ func (t *FindItemNeighborsTask) run(j *task.JobsAllocator) error {
 
 	if !(t.taskMonitor.Status(TaskFindItemNeighbors) == task.StatusComplete ||
 		t.taskMonitor.Status(TaskFindItemNeighbors) == task.StatusFailed ||
+		t.taskMonitor.Status(TaskFindItemNeighbors) == task.StatusPending ||
 		t.taskMonitor.Status(TaskFindItemNeighbors) == "") {
+
+		log.Logger().Error("task is running",
+			zap.String("task", TaskFindItemNeighbors),
+			zap.String("status", string(t.taskMonitor.Status(TaskFindItemNeighbors))))
 		//上个任务正在运行，
 		return nil
 	}
@@ -624,7 +629,11 @@ func (t *FindUserNeighborsTask) run(j *task.JobsAllocator) error {
 
 	if !(t.taskMonitor.Status(TaskFindUserNeighbors) == task.StatusComplete ||
 		t.taskMonitor.Status(TaskFindUserNeighbors) == task.StatusFailed ||
+		t.taskMonitor.Status(TaskFindUserNeighbors) == task.StatusPending ||
 		t.taskMonitor.Status(TaskFindUserNeighbors) == "") {
+		log.Logger().Error("task is running",
+			zap.String("task", TaskFindUserNeighbors),
+			zap.String("status", string(t.taskMonitor.Status(TaskFindUserNeighbors))))
 		//上个任务正在运行，
 		return nil
 	}
@@ -1437,6 +1446,10 @@ func (t *CacheGarbageCollectionTask) run(j *task.JobsAllocator) error {
 
 	log.Logger().Info("start cache garbage collection")
 	t.taskMonitor.Start(TaskCacheGarbageCollection, t.rankingTrainSet.UserCount()*9+t.rankingTrainSet.ItemCount()*4)
+	t.taskMonitor.Update(TaskCacheGarbageCollection, t.rankingTrainSet.UserCount()*9+t.rankingTrainSet.ItemCount()*4)
+	t.taskMonitor.Finish(TaskCacheGarbageCollection)
+
+	return nil
 	var scanCount, reclaimCount int
 	start := time.Now()
 

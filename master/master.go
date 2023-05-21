@@ -382,7 +382,7 @@ func (m *Master) RunRagtagTasksLoop() {
 	var (
 		err   error
 		tasks = []Task{
-			//NewCacheGarbageCollectionTask(m),
+			NewCacheGarbageCollectionTask(m),
 			NewSearchRankingModelTask(m),
 			NewSearchClickModelTask(m),
 		}
@@ -422,7 +422,7 @@ func (m *Master) RunManagedTasksLoop() {
 			NewFindItemNeighborsTask(m),
 		}
 		ragtagTasks = []Task{
-			//NewCacheGarbageCollectionTask(m),
+			NewCacheGarbageCollectionTask(m),
 			NewSearchRankingModelTask(m),
 			NewSearchClickModelTask(m),
 		}
