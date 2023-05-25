@@ -436,6 +436,7 @@ func (d *SQLDatabase) GetItem(ctx context.Context, itemId string) (Item, error) 
 		if err := json.Unmarshal([]byte(categories), &item.Categories); err != nil {
 			return Item{}, err
 		}
+		item.Timestamp = item.Timestamp.Local()
 		item.Comment = comment.String
 		return item, nil
 	}
@@ -513,6 +514,7 @@ func (d *SQLDatabase) GetItems(ctx context.Context, cursor string, n int, timeLi
 		if err = json.Unmarshal([]byte(categories), &item.Categories); err != nil {
 			return "", nil, errors.Trace(err)
 		}
+		item.Timestamp = item.Timestamp.Local()
 		item.Comment = comment.String
 		items = append(items, item)
 	}

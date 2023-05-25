@@ -1,4 +1,5 @@
 FROM debian:buster-slim
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 COPY gorse-worker /usr/bin/gorse-worker
 
